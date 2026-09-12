@@ -512,7 +512,7 @@ code {
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
   display: grid;
   place-items: center;
 }

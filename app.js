@@ -53,9 +53,9 @@
     { id: "xcell", title: "xCell CAF", desc: "Cancer-associated fibroblast signature ssGSEA heatmap." },
     { id: "mcpcounter", title: "MCPcounter", desc: "MCPcounter cell abundance ssGSEA heatmap." },
     { id: "tme-classifier", title: "TME classification", desc: "Nearest-centroid TMEA / TMEB / TMEC prediction." },
-    { id: "tcell", title: "T cell states", desc: "Reference module for TCellSI T-cell state scores.", requires: true },
-    { id: "metabolic", title: "Metabolic flux", desc: "Reference module for metabolic flux differential analysis.", requires: true },
-    { id: "pseudotime", title: "Pseudotime trajectory", desc: "Reference module for slingshot trajectory inference.", requires: true },
+    { id: "tcell", title: "T cell states", desc: "TCellSI-inspired T-cell state scores and group comparison." },
+    { id: "metabolic", title: "Metabolic flux", desc: "Metabolic pathway differential volcano between risk groups." },
+    { id: "pseudotime", title: "Pseudotime trajectory", desc: "PCA-based trajectory and pseudotime across CRC risk groups." },
   ];
 
   function formatNumber(value, digits) {
@@ -468,6 +468,12 @@
         { name: "StromalScore", genes: DATA.si_stromal || [] },
       ], geneMap);
     }
+    if (module === "tcell") {
+      return setsToIndices(Object.entries(DATA.tcellsi_markers || {}).map(([name, genes]) => ({ name, genes })), geneMap);
+    }
+    if (module === "metabolic") {
+      return setsToIndices(Object.entries(DATA.metabolic_sets || {}).map(([name, genes]) => ({ name, genes })), geneMap);
+    }
     if (module === "tme") {
       const immune = DATA.cms.find((s) => s.name === "Immune_infiltration");
       const stromal = DATA.cms.find((s) => s.name === "Stromal_infiltration");
@@ -830,6 +836,10 @@
       ctx.font = "bold 12px sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(metric, pad.left + mi * metricW + metricW / 2, 24);
+      const pMetric = kruskalWallisP(groupValues[mi]);
+      ctx.fillStyle = "#5d6b65";
+      ctx.font = "11px sans-serif";
+      ctx.fillText("p = " + (Number.isFinite(pMetric) ? pMetric.toExponential(2) : "NA"), pad.left + mi * metricW + metricW / 2, 40);
     });
     ctx.fillStyle = "#16211e";
     ctx.font = "bold 14px sans-serif";
@@ -1113,6 +1123,68 @@
       const observed = riskCats.map((rc) => classes.map((c) => crossTab[rc][c]));
       drawPercentStackedBar(crossTab, classes, ["#f7acbc", "#fedcbd", "#99CCFF"], "TME classification", contingencyChiSquareP(observed));
       showResult("TME classification", "Nearest-centroid TMEA / TMEB / TMEC prediction.", ["Sample", "TME", ...classes], rows.map((r) => [r.sample, r.tme, ...r.sims.map((v) => v.toFixed(3))]));
+    } else if (id === "tcell") {
+      const { sets, scoresBySet, labels } = runHeatmapModule(id);
+      const groups = referenceGroups();
+      const groupNames = groups.map((g) => g.name);
+      const medianMatrix = groups.map((g) => labels.map((_, gi) => median(g.values.map((si) => scoresBySet[gi][si]))));
+      const pValues = labels.map((_, gi) => kruskalWallisP(groups.map((g) => g.values.map((si) => scoresBySet[gi][si]))));
+      drawReferenceHeatmap(labels, groupNames, medianMatrix, pValues, null, {}, "T cell states");
+      const rows = state.parsed.samples.map((sample, si) => [sample, ...labels.map((_, gi) => formatNumber(scoresBySet[gi][si], 3))]);
+      showResult("T cell states", "TCellSI-inspired state scores with Kruskal-Wallis p-values.", ["Sample", ...labels], rows);
+    } else if (id === "metabolic") {
+      const { sets, scoresBySet, labels } = runHeatmapModule(id);
+      const riskRows = state.risk.rows;
+      const hIdx = [], lIdx = [];
+      riskRows.forEach((r, si) => { if (r.cluster === "iHRS") hIdx.push(si); else lIdx.push(si); });
+      const points = sets.map((set, gi) => {
+        const a = hIdx.map((si) => scoresBySet[gi][si]);
+        const b = lIdx.map((si) => scoresBySet[gi][si]);
+        const p = welchTest(a, b);
+        const fc = a.reduce((x, y) => x + y, 0) / a.length - b.reduce((x, y) => x + y, 0) / b.length;
+        return { name: labels[gi], fc, p, negLogP: Number.isFinite(p) ? -Math.log10(p) : 0 };
+      });
+      drawVolcano(points, "Metabolic flux: iHRS vs iLRS");
+      showResult("Metabolic flux", "Metabolic pathway differential scores.", ["Pathway", "Mean difference", "p-value", "-log10 p"], points.map((p) => [p.name, p.fc.toFixed(3), p.p.toExponential(3), p.negLogP.toFixed(3)]));
+    } else if (id === "pseudotime") {
+      const parsed = state.parsed;
+      const variances = parsed.genes.map((_, gi) => {
+        const vals = parsed.samples.map((_, si) => parsed.matrix[gi][si]);
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        return { gi, var: vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / vals.length };
+      }).sort((a, b) => b.var - a.var).slice(0, 200);
+      const useGenes = variances.map((x) => x.gi);
+      const X = useGenes.map((gi) => {
+        const vals = parsed.samples.map((_, si) => parsed.matrix[gi][si]);
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        return vals.map((v) => v - mean);
+      });
+      const n = parsed.samples.length;
+      const C = Array.from({ length: X.length }, (_, i) => Array.from({ length: X.length }, (_, j) => {
+        let s = 0; for (let k = 0; k < n; k += 1) s += X[i][k] * X[j][k]; return s;
+      }));
+      const power = (M) => {
+        let v = Array.from({ length: M.length }, (_, i) => i === 0 ? 1 : 0);
+        for (let iter = 0; iter < 80; iter += 1) {
+          const w = M.map((row) => row.reduce((s, val, j) => s + val * v[j], 0));
+          const norm = Math.sqrt(w.reduce((s, x) => s + x * x, 0)) || 1;
+          v = w.map((x) => x / norm);
+        }
+        return v;
+      };
+      const pc1 = power(C);
+      const pc1Score = parsed.samples.map((_, si) => X.reduce((s, geneRow, gi) => s + pc1[gi] * geneRow[si], 0));
+      const meanPC = pc1Score.reduce((a, b) => a + b, 0) / pc1Score.length;
+      const pseudotime = pc1Score.map((v) => v - meanPC);
+      const rows = parsed.samples.map((sample, si) => ({ sample, pseudotime: pseudotime[si], pc1: pc1Score[si], group: state.risk.rows[si].cluster }));
+      const groups = referenceGroups();
+      const grpData = groups.map((g) => g.values.map((si) => pseudotime[si]));
+      const p = kruskalWallisP(grpData);
+      const ctx = prepareCanvas(760, 420);
+      ctx.fillStyle = "#16211e"; ctx.font = "bold 14px sans-serif"; ctx.fillText("Pseudotime trajectory", 60, 24);
+      ctx.fillStyle = "#5d6b65"; ctx.font = "12px sans-serif"; ctx.fillText("Kruskal-Wallis p = " + (Number.isFinite(p) ? p.toExponential(2) : "NA"), 60, 44);
+      drawHistogram(pseudotime, "#d94f3d");
+      showResult("Pseudotime trajectory", "PCA-based pseudotime across CRC risk groups.", ["Sample", "PC1", "Pseudotime", "Risk group"], rows.map((r) => [r.sample, r.pc1.toFixed(3), r.pseudotime.toFixed(3), r.group]));
     } else if (id === "hallmark" || id === "functions" || id === "immune" || id === "tme") {
       const { sets, scoresBySet, labels } = runHeatmapModule(id);
       const groups = referenceGroups();
