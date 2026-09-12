@@ -760,45 +760,82 @@
   }
 
   function drawPercentStackedBar(crossTab, categories, colors, title, pValue) {
-    const width = 760, height = 410;
+    const width = 780, height = 430;
     const ctx = prepareCanvas(width, height);
-    const pad = { left: 60, right: 20, top: 55, bottom: 65 };
+    const pad = { left: 66, right: 140, top: 55, bottom: 66 };
     const plotW = width - pad.left - pad.right;
     const plotH = height - pad.top - pad.bottom;
     const groupNames = Object.keys(crossTab);
     const groupW = plotW / groupNames.length;
+    const yMax = 105;
+    const y = (v) => pad.top + plotH - (v / yMax) * plotH;
+
+    ctx.strokeStyle = "#16211e";
+    ctx.fillStyle = "#16211e";
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "right";
+    [0, 25, 50, 75, 100].forEach((tick) => {
+      const yy = y(tick);
+      ctx.beginPath(); ctx.moveTo(pad.left - 5, yy); ctx.lineTo(pad.left, yy); ctx.stroke();
+      ctx.fillText(String(tick), pad.left - 9, yy + 4);
+    });
+    ctx.save();
+    ctx.translate(18, pad.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center";
+    ctx.fillText("Percentage (%)", 0, 0);
+    ctx.restore();
+
     groupNames.forEach((group, gi) => {
       const counts = categories.map((cat) => crossTab[group][cat] || 0);
       const total = counts.reduce((a, b) => a + b, 0) || 1;
-      let yTop = pad.top + plotH;
+      const xLeft = pad.left + gi * groupW + groupW * 0.15;
+      const barW = groupW * 0.7;
+      let yTop = y(0);
       counts.forEach((count, ci) => {
-        const h = (count / total) * plotH;
-        ctx.fillStyle = colors[ci];
-        ctx.fillRect(pad.left + gi * groupW + groupW * 0.18, yTop - h, groupW * 0.64, h);
-        ctx.strokeStyle = "#ffffff";
-        ctx.strokeRect(pad.left + gi * groupW + groupW * 0.18, yTop - h, groupW * 0.64, h);
         const pct = (count / total) * 100;
+        const h = (pct / yMax) * plotH;
+        ctx.fillStyle = colors[ci];
+        ctx.fillRect(xLeft, yTop - h, barW, h);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(xLeft, yTop - h, barW, h);
         if (pct >= 5) {
           ctx.fillStyle = "#16211e";
           ctx.font = "bold 12px sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText(pct.toFixed(1) + "%", pad.left + gi * groupW + groupW / 2, yTop - h / 2 + 4);
+          ctx.fillText(pct.toFixed(1) + "%", xLeft + barW / 2, yTop - h / 2 + 4);
         }
         yTop -= h;
       });
       ctx.fillStyle = "#16211e";
       ctx.font = "bold 13px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(group, pad.left + gi * groupW + groupW / 2, height - 32);
-      ctx.fillText("n = " + total, pad.left + gi * groupW + groupW / 2, height - 15);
+      ctx.fillText(group, xLeft + barW / 2, height - 32);
+      ctx.fillText("n = " + total, xLeft + barW / 2, height - 15);
     });
+
+    const legendX = width - pad.right + 12;
+    const legendY = pad.top;
+    ctx.textAlign = "left";
+    ctx.font = "12px sans-serif";
+    categories.forEach((cat, ci) => {
+      ctx.fillStyle = colors[ci];
+      ctx.fillRect(legendX, legendY + ci * 24, 14, 14);
+      ctx.strokeStyle = "#16211e";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(legendX, legendY + ci * 24, 14, 14);
+      ctx.fillStyle = "#16211e";
+      ctx.fillText(cat, legendX + 20, legendY + ci * 24 + 12);
+    });
+
     ctx.fillStyle = "#16211e";
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "left";
     ctx.fillText(title, pad.left, 24);
     ctx.fillStyle = "#5d6b65";
     ctx.font = "12px sans-serif";
-    ctx.fillText("Chi-square p = " + (Number.isFinite(pValue) ? pValue.toExponential(2) : "NA"), pad.left, 44);
+    ctx.fillText("Chi-square test: p = " + (Number.isFinite(pValue) ? pValue.toExponential(2) : "NA"), pad.left, 44);
   }
 
   function drawGroupedBoxplots(metrics, groupNames, groupValues, colors, title) {
@@ -845,6 +882,34 @@
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "left";
     ctx.fillText(title, pad.left, 20);
+  }
+
+  function drawCountBar(labels, values, colors, title) {
+    const width = 620, height = 360;
+    const ctx = prepareCanvas(width, height);
+    const pad = { left: 55, right: 20, top: 45, bottom: 55 };
+    const plotW = width - pad.left - pad.right;
+    const plotH = height - pad.top - pad.bottom;
+    const max = Math.max(...values, 1);
+    const groupW = plotW / labels.length;
+    ctx.fillStyle = "#16211e";
+    ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(title, pad.left, 24);
+    labels.forEach((label, i) => {
+      const h = (values[i] / max) * plotH;
+      const x = pad.left + i * groupW + groupW * 0.18;
+      ctx.fillStyle = colors[i];
+      ctx.fillRect(x, pad.top + plotH - h, groupW * 0.64, h);
+      ctx.strokeStyle = "#16211e";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, pad.top + plotH - h, groupW * 0.64, h);
+      ctx.fillStyle = "#16211e";
+      ctx.font = "bold 13px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(values[i]), x + groupW * 0.32, pad.top + plotH - h - 6);
+      ctx.fillText(label, x + groupW * 0.32, height - 22);
+    });
   }
 
   function drawReferenceHeatmap(metricNames, groupNames, medianMatrix, pValues, categories, categoryColors, title) {
@@ -965,7 +1030,7 @@
       const rows = runRisk();
       const counts = {};
       rows.forEach((r) => { counts[r.cluster] = (counts[r.cluster] || 0) + 1; });
-      drawPercentStackedBar({ Risk: { iHRS: counts.iHRS || 0, iLRS: counts.iLRS || 0 } }, ["iHRS", "iLRS"], ["#d94f3d", "#0f766e"], "Risk classification", NaN);
+      drawCountBar(["iHRS", "iLRS"], [counts.iHRS || 0, counts.iLRS || 0], ["#d94f3d", "#0f766e"], "Risk classification");
       showResult("Risk classification", "Random forest probability and iHRS / iLRS assignment.", ["Sample", "iHRS probability", "iLRS probability", "Cluster"], rows.map((r) => [r.sample, r.ihRS.toFixed(4), r.ilRS.toFixed(4), r.cluster]));
     } else if (id === "msi") {
       const rows = runMSI();
