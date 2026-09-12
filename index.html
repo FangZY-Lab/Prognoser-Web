@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prognoser · CRC risk stratification</title>
+  <meta name="description" content="Browser-based CRC risk classification, MSI status, and multi-view molecular annotation from a gene expression matrix.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#" aria-label="Prognoser home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 18h16"></path>
+            <path d="M6 14l3-4 4 2 5-7"></path>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">Prognoser</span>
+          <span class="brand-tagline">CRC risk classification and molecular annotation</span>
+        </span>
+      </a>
+      <a class="gh-link" href="https://github.com/FangZY-Lab/Prognoser-Web" target="_blank" rel="noreferrer">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.91c.58.1.79-.25.79-.56v-2.22c-3.2.7-3.88-1.35-3.88-1.35-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.12 3.05.73.8 1.17 1.83 1.17 3.08 0 4.41-2.68 5.38-5.24 5.67.41.35.78 1.05.78 2.12v3.15c0 .31.2.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"></path>
+        </svg>
+        Prognoser-Web
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="intro">
+      <h1>CRC risk stratification and molecular annotation from one expression matrix.</h1>
+      <p>Upload a colorectal cancer gene expression matrix to obtain iHRS/iLRS risk classification, microsatellite status, and modular molecular views.</p>
+      <p class="privacy-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="4" y="10" width="16" height="11" rx="2"></rect>
+          <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+        </svg>
+        All calculations run locally in your browser. Your data never leaves this device.
+      </p>
+    </section>
+
+    <section class="upload-panel">
+      <div class="panel-head">
+        <div>
+          <span class="step-kicker">Step 1</span>
+          <h2>Upload expression matrix</h2>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-ghost" id="download-example-btn" type="button">Download example file</button>
+          <button class="btn btn-example" id="example-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M7 5.2v13.6a1 1 0 0 0 1.54.84l10.42-6.8a1 1 0 0 0 0-1.68L8.54 4.36A1 1 0 0 0 7 5.2Z"></path>
+            </svg>
+            Load example data
+          </button>
+        </div>
+      </div>
+      <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Select or drop an expression matrix file">
+        <input type="file" id="file-input" accept=".txt,.tsv,.csv,text/plain,text/tab-separated-values,text/csv" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 16V4"></path>
+          <path d="m7 9 5-5 5 5"></path>
+          <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
+        </svg>
+        <p class="dropzone-title">Drag &amp; drop a file here, or <span>browse</span></p>
+        <p class="dropzone-hint">CSV / TSV / TXT · genes as rows, samples as columns</p>
+      </div>
+      <div class="file-line hidden" id="file-line">
+        <span class="file-dot" aria-hidden="true"></span>
+        <span id="file-name" class="file-name"></span>
+        <span id="file-size" class="file-size"></span>
+        <button class="text-btn" id="reset-btn" type="button">Change file</button>
+      </div>
+      <div class="summary-grid" id="summary-grid">
+        <div class="summary-item"><span class="summary-value" id="summary-genes">—</span><span class="summary-label">Genes</span></div>
+        <div class="summary-item"><span class="summary-value" id="summary-samples">—</span><span class="summary-label">Samples</span></div>
+        <div class="summary-item"><span class="summary-value" id="summary-risk-sets">—</span><span class="summary-label">Risk gene sets</span></div>
+      </div>
+      <p class="parse-note" id="parse-note"></p>
+      <div class="warning hidden" id="warning-box" role="alert"></div>
+    </section>
+
+    <section class="modules-section">
+      <div class="section-head">
+        <span class="step-kicker">Step 2</span>
+        <h2>Analysis modules</h2>
+        <p>Select a module to run and visualize it independently.</p>
+      </div>
+      <div class="module-grid" id="module-grid"></div>
+    </section>
+
+    <section class="result-panel hidden" id="result-panel">
+      <div class="result-head">
+        <div>
+          <span class="step-kicker">Result</span>
+          <h2 id="result-title">Result</h2>
+          <p id="result-subtitle"></p>
+        </div>
+        <div class="result-actions">
+          <button class="btn btn-ghost" id="download-csv-btn" type="button">Download CSV</button>
+          <button class="btn btn-ghost" id="download-png-btn" type="button">Download chart</button>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="chart-wrap"><canvas id="main-canvas"></canvas></div>
+        <div class="table-wrap"><table id="result-table"></table></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>Based on <code>在线网站参考代码.R</code>, <code>rf_model.Rdata</code>, and the bundled Prognoser signatures.</p>
+      <a href="https://github.com/FangZY-Lab/Prognoser-Web" target="_blank" rel="noreferrer">Prognoser-Web</a>
+    </div>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
