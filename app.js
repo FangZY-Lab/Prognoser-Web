@@ -987,6 +987,7 @@
       drawHistogram(vals, "#d94f3d");
       showResult("Risk score distribution", "Distribution of iHRS probability across samples.", ["Sample", "iHRS probability", "Cluster"], state.risk.rows.map((r) => [r.sample, r.ihRS.toFixed(4), r.cluster]));
     } else if (id === "deg") {
+      if (!state.risk) runRisk();
       const points = runDEG();
       drawVolcano(points, "iHRS vs iLRS");
       const top = points.slice(0, 200);
@@ -1049,7 +1050,8 @@
       const metrics = ["ImmuneScore", "StromalScore", "ESTIMATEScore", "TumorPurity"];
       const groups = referenceGroups();
       const groupNames = groups.map((g) => g.name);
-      const groupValues = metrics.map((metric) => groups.map((g) => g.values.map((si) => rows[si][metric.toLowerCase()])));
+      const fieldMap = { ImmuneScore: "immune", StromalScore: "stromal", ESTIMATEScore: "estimate", TumorPurity: "purity" };
+      const groupValues = metrics.map((metric) => groups.map((g) => g.values.map((si) => rows[si][fieldMap[metric]])));
       drawGroupedBoxplots(metrics, groupNames, groupValues, ["#f391a9", "#d71345", "#90d7ec", "#145b7d"], "ESTIMATE algorithm");
       showResult("ESTIMATE algorithm", "Immune, stromal, ESTIMATE, and tumor purity scores.", ["Sample", "ImmuneScore", "StromalScore", "ESTIMATEScore", "TumorPurity"], rows.map((r) => [r.sample, r.immune.toFixed(3), r.stromal.toFixed(3), r.estimate.toFixed(3), r.purity.toFixed(3)]));
     } else if (id === "ips") {
@@ -1142,7 +1144,7 @@
         const b = lIdx.map((si) => scoresBySet[gi][si]);
         const p = welchTest(a, b);
         const fc = a.reduce((x, y) => x + y, 0) / a.length - b.reduce((x, y) => x + y, 0) / b.length;
-        return { name: labels[gi], fc, p, negLogP: Number.isFinite(p) ? -Math.log10(p) : 0 };
+        return { name: labels[gi], logFC: fc, fc, p, negLogP: Number.isFinite(p) ? -Math.log10(p) : 0 };
       });
       drawVolcano(points, "Metabolic flux: iHRS vs iLRS");
       showResult("Metabolic flux", "Metabolic pathway differential scores.", ["Pathway", "Mean difference", "p-value", "-log10 p"], points.map((p) => [p.name, p.fc.toFixed(3), p.p.toExponential(3), p.negLogP.toFixed(3)]));
