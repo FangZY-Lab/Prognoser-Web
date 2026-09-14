@@ -57,6 +57,7 @@
     { id: "tcell", title: "T cell states", desc: "TCellSI-inspired T-cell state scores and group comparison." },
     { id: "metabolic", title: "Metabolic flux", desc: "Metabolic pathway differential volcano between risk groups." },
     { id: "pseudotime", title: "Pseudotime trajectory", desc: "PCA-based trajectory and pseudotime across CRC risk groups." },
+    { id: "literature", title: "Prognostic ML literature", desc: "Curated PubMed-indexed tumor prognosis machine-learning studies." },
   ];
 
   function formatNumber(value, digits) {
@@ -1253,6 +1254,41 @@
       ctx.fillStyle = "#5d6b65"; ctx.font = "12px sans-serif"; ctx.fillText("Kruskal-Wallis p = " + (Number.isFinite(p) ? p.toExponential(2) : "NA"), 60, 44);
       drawHistogram(pseudotime, "#d94f3d");
       showResult("Pseudotime trajectory", "PCA-based pseudotime across CRC risk groups.", ["Sample", "PC1", "Pseudotime", "Risk group"], rows.map((r) => [r.sample, r.pc1.toFixed(3), r.pseudotime.toFixed(3), r.group]));
+    } else if (id === "literature") {
+      const lit = DATA.literature || [];
+      const yearCounts = {};
+      lit.forEach((p) => { yearCounts[p.year] = (yearCounts[p.year] || 0) + 1; });
+      const years = Object.keys(yearCounts).sort();
+      drawCountBar(years, years.map((y) => yearCounts[y]), years.map(() => "#27e0d3"), "PubMed-indexed prognostic ML literature");
+      resultPanel.classList.remove("hidden");
+      resultTitle.textContent = "Prognostic ML literature";
+      resultSubtitle.textContent = lit.length + " curated PubMed-indexed tumor prognosis machine-learning studies.";
+      resultTable.innerHTML = "";
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+      ["Title", "Journal", "Year", "PubMed"].forEach((h) => {
+        const th = document.createElement("th"); th.textContent = h; trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+      const tbody = document.createElement("tbody");
+      lit.forEach((p) => {
+        const tr = document.createElement("tr");
+        [p.title, p.journal, p.year].forEach((cell) => {
+          const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td);
+        });
+        const linkTd = document.createElement("td");
+        const a = document.createElement("a");
+        a.href = "https://pubmed.ncbi.nlm.nih.gov/" + p.pmid + "/";
+        a.target = "_blank";
+        a.rel = "noreferrer";
+        a.textContent = "PMID " + p.pmid;
+        a.style.color = "#27e0d3";
+        linkTd.appendChild(a);
+        tr.appendChild(linkTd);
+        tbody.appendChild(tr);
+      });
+      resultTable.replaceChildren(thead, tbody);
+      state.lastCsv = "Title,Journal,Year,PubMed\n" + lit.map((p) => [p.title, p.journal, p.year, "https://pubmed.ncbi.nlm.nih.gov/" + p.pmid + "/"].join(",")).join("\n");
     } else if (id === "hallmark" || id === "functions" || id === "immune" || id === "tme") {
       const { sets, scoresBySet, labels } = runHeatmapModule(id);
       const groups = referenceGroups();
