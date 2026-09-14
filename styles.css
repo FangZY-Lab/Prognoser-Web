@@ -28,10 +28,15 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 600px at 8% -5%, rgba(15, 118, 110, 0.14), transparent 60%),
+    radial-gradient(1000px 520px at 95% 8%, rgba(123, 97, 168, 0.13), transparent 58%),
+    radial-gradient(900px 500px at 60% 100%, rgba(217, 79, 61, 0.10), transparent 60%),
+    var(--bg);
   color: var(--ink);
   line-height: 1.5;
   letter-spacing: 0;
+  min-height: 100vh;
 }
 
 .container {
@@ -57,9 +62,20 @@ code {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(244, 242, 236, 0.92);
-  backdrop-filter: blur(10px);
+  background: rgba(244, 242, 236, 0.72);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
   border-bottom: 1px solid var(--line);
+}
+
+.site-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(15, 118, 110, 0.55), rgba(217, 79, 61, 0.55), transparent);
 }
 
 .header-inner {
@@ -82,11 +98,20 @@ code {
   width: 42px;
   height: 42px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--brand), var(--violet));
+  background: linear-gradient(135deg, #0f766e 0%, #7b61a8 50%, #d94f3d 100%);
+  background-size: 180% 180%;
+  animation: brandFlow 7s ease infinite;
+  box-shadow: 0 10px 26px rgba(15, 118, 110, 0.22);
   color: #fff;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
+}
+
+@keyframes brandFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .brand-mark svg {
@@ -149,6 +174,10 @@ code {
   font-weight: 760;
   letter-spacing: 0;
   margin: 0 0 18px;
+  background: linear-gradient(110deg, #16211e 12%, #0f766e 48%, #d94f3d 88%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .intro p {
@@ -271,9 +300,29 @@ code {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 20px 60px rgba(22, 33, 30, 0.10);
   padding: 28px;
   margin-bottom: 42px;
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-panel::before,
+.result-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--brand), var(--violet), var(--coral));
+}
+
+.result-panel {
+  animation: fadeUp 0.45s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .panel-head,
@@ -351,13 +400,14 @@ code {
 }
 
 .btn-example {
-  background: var(--brand-soft);
-  border-color: var(--brand);
-  color: var(--brand-strong);
+  background: linear-gradient(135deg, #0f766e, #0b5f59);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.20);
 }
 
 .btn-example:hover {
-  background: #d8ebe6;
+  background: linear-gradient(135deg, #0e7f76, #0a6a63);
 }
 
 .btn-ghost {
@@ -530,7 +580,7 @@ code {
   position: relative;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.42)), var(--surface);
   padding: 16px;
   cursor: pointer;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -538,12 +588,13 @@ code {
   display: flex;
   flex-direction: column;
   text-align: left;
+  animation: fadeUp 0.45s ease both;
 }
 
 .module-card:hover {
   border-color: var(--brand);
-  box-shadow: 0 10px 24px rgba(22, 33, 30, 0.08);
-  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(15, 118, 110, 0.16), 0 0 0 1px rgba(15, 118, 110, 0.12);
+  transform: translateY(-4px);
 }
 
 .module-card.active {
@@ -661,7 +712,7 @@ tbody tr:hover {
 
 .site-footer {
   border-top: 1px solid var(--line);
-  background: var(--surface);
+  background: linear-gradient(180deg, #fffdfa 0%, #e8f1ee 100%);
   padding: 24px 0;
   color: var(--muted);
 }
