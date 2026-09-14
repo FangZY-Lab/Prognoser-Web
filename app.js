@@ -28,6 +28,8 @@
   const resultTable = $("#result-table");
   const downloadCsvBtn = $("#download-csv-btn");
   const downloadPngBtn = $("#download-png-btn");
+  const literatureNavBtn = $("#literature-nav-btn");
+  const literatureCtaBtn = $("#literature-cta-btn");
 
   const state = {
     parsed: null,
@@ -1027,7 +1029,7 @@
   }
 
   function moduleRunner(id) {
-    if (!state.parsed) throw new Error("Upload an expression matrix first.");
+    if (!state.parsed && id !== "literature") throw new Error("Upload an expression matrix first.");
     if (id === "risk") {
       const rows = runRisk();
       const counts = {};
@@ -1535,6 +1537,15 @@
     a.download = "prognoser_chart.png";
     a.click();
   });
+
+  function openLiterature() {
+    warningBox.classList.add("hidden");
+    moduleRunner("literature");
+    resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  literatureNavBtn.addEventListener("click", openLiterature);
+  literatureCtaBtn.addEventListener("click", openLiterature);
 
   buildModules();
 })();
