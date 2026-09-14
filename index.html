@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prognoser · CRC risk stratification</title>
-  <meta name="description" content="Browser-based CRC risk classification, MSI status, and multi-view molecular annotation from a gene expression matrix.">
+  <title>Prognoser · CRC molecular risk and annotation web server</title>
+  <meta name="description" content="Prognoser is a browser-based web server for colorectal cancer risk classification, MSI status, and multi-view molecular annotation from a gene expression matrix.">
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -34,8 +34,13 @@
 
   <main class="container">
     <section class="intro">
-      <h1>CRC risk stratification and molecular annotation from one expression matrix.</h1>
-      <p>Upload a colorectal cancer gene expression matrix to obtain iHRS/iLRS risk classification, microsatellite status, and modular molecular views.</p>
+      <h1>A single expression matrix, a complete colorectal cancer molecular annotation.</h1>
+      <p>Prognoser transforms a colorectal cancer expression profile into risk classification, microsatellite status, CMS / iCMS subtype, immune context, and multi-omics pathway activity without installing software or uploading patient data.</p>
+      <div class="intro-badges">
+        <span class="intro-badge">Fully client-side</span>
+        <span class="intro-badge">18 analysis modules</span>
+        <span class="intro-badge">Open source</span>
+      </div>
       <p class="privacy-note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="4" y="10" width="16" height="11" rx="2"></rect>
@@ -43,6 +48,24 @@
         </svg>
         All calculations run locally in your browser. Your data never leaves this device.
       </p>
+    </section>
+
+    <section class="highlights" aria-label="Highlights">
+      <div class="highlight-card">
+        <span class="highlight-icon">01</span>
+        <h3>Risk classification</h3>
+        <p>ssGSEA features and a bundled random forest model assign each sample to iHRS or iLRS.</p>
+      </div>
+      <div class="highlight-card">
+        <span class="highlight-icon">02</span>
+        <h3>MSI status</h3>
+        <p>A PreMSIm-style kNN classifier predicts MSI-H and MSI-L directly from expression.</p>
+      </div>
+      <div class="highlight-card">
+        <span class="highlight-icon">03</span>
+        <h3>Molecular views</h3>
+        <p>CMS, iCMS, hallmarks, immune infiltration, immunophenoscore, and metabolic flux.</p>
+      </div>
     </section>
 
     <section class="upload-panel">
@@ -112,12 +135,28 @@
         <div class="table-wrap"><table id="result-table"></table></div>
       </div>
     </section>
+
+    <section class="method-section">
+      <div class="section-head">
+        <span class="step-kicker">Methods</span>
+        <h2>Reproducible, direction-aware scoring</h2>
+        <p>Prognoser uses GSVA-style ssGSEA, validated random forest models, and direction-resolved signatures. Every comparison reports a statistical test and can be exported as CSV or PNG.</p>
+      </div>
+      <div class="method-grid">
+        <div class="method-card"><strong>Input</strong><span>CSV, TSV, or TXT; genes in rows and samples in columns.</span></div>
+        <div class="method-card"><strong>Privacy</strong><span>All computation runs in your browser; data never leaves the device.</span></div>
+        <div class="method-card"><strong>Output</strong><span>Interactive figures, result tables, CSV downloads, and PNG charts.</span></div>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <p>Based on <code>在线网站参考代码.R</code>, <code>rf_model.Rdata</code>, and the bundled Prognoser signatures.</p>
-      <a href="https://github.com/FangZY-Lab/Prognoser-Web" target="_blank" rel="noreferrer">Prognoser-Web</a>
+      <div>
+        <p>Prognoser-Web · An open-source colorectal cancer molecular annotation tool.</p>
+        <p class="footer-meta">Based on the Prognoser pipeline, <code>rf_model.Rdata</code>, and bundled molecular signatures.</p>
+      </div>
+      <a class="footer-link" href="https://github.com/FangZY-Lab/Prognoser-Web" target="_blank" rel="noreferrer">View on GitHub</a>
     </div>
   </footer>
 

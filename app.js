@@ -9,6 +9,7 @@
   const fileInput = $("#file-input");
   const exampleBtn = $("#example-btn");
   const downloadExampleBtn = $("#download-example-btn");
+  const exampleButtonHtml = exampleBtn.innerHTML;
   const resetBtn = $("#reset-btn");
   const fileLine = $("#file-line");
   const fileName = $("#file-name");
@@ -1380,17 +1381,28 @@
     return await new Response(stream).text();
   }
 
+  function setExampleLoading(loading) {
+    exampleBtn.disabled = loading;
+    downloadExampleBtn.disabled = loading;
+    if (loading) exampleBtn.textContent = "Loading example data…";
+    else exampleBtn.innerHTML = exampleButtonHtml;
+  }
+
   async function loadTcgaExample() {
+    setExampleLoading(true);
     try {
       const text = await fetchTcgaExampleText();
       await handleFile(new File([text], "TCGA-CRC_example.tsv", { type: "text/plain;charset=utf-8" }));
     } catch (error) {
       warningBox.textContent = error.message;
       warningBox.classList.remove("hidden");
+    } finally {
+      setExampleLoading(false);
     }
   }
 
   async function downloadTcgaExample() {
+    setExampleLoading(true);
     try {
       const text = await fetchTcgaExampleText();
       const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -1403,6 +1415,8 @@
     } catch (error) {
       warningBox.textContent = error.message;
       warningBox.classList.remove("hidden");
+    } finally {
+      setExampleLoading(false);
     }
   }
 
