@@ -30,6 +30,8 @@
   const downloadPngBtn = $("#download-png-btn");
   const literatureNavBtn = $("#literature-nav-btn");
   const literatureCtaBtn = $("#literature-cta-btn");
+  const toolsNavBtn = $("#tools-nav-btn");
+  const toolsCtaBtn = $("#tools-cta-btn");
 
   const state = {
     parsed: null,
@@ -60,6 +62,7 @@
     { id: "metabolic", title: "Metabolic flux", desc: "Metabolic pathway differential volcano between risk groups." },
     { id: "pseudotime", title: "Pseudotime trajectory", desc: "PCA-based trajectory and pseudotime across CRC risk groups." },
     { id: "literature", title: "Prognostic ML literature", desc: "Curated PubMed-indexed tumor prognosis machine-learning studies." },
+    { id: "tools", title: "Prognostic tools & packages", desc: "Curated survival analysis methods, software, and GitHub repositories." },
   ];
 
   function formatNumber(value, digits) {
@@ -1029,7 +1032,7 @@
   }
 
   function moduleRunner(id) {
-    if (!state.parsed && id !== "literature") throw new Error("Upload an expression matrix first.");
+    if (!state.parsed && id !== "literature" && id !== "tools") throw new Error("Upload an expression matrix first.");
     if (id === "risk") {
       const rows = runRisk();
       const counts = {};
@@ -1291,6 +1294,41 @@
       });
       resultTable.replaceChildren(thead, tbody);
       state.lastCsv = "Title,Journal,Year,PubMed\n" + lit.map((p) => [p.title, p.journal, p.year, "https://pubmed.ncbi.nlm.nih.gov/" + p.pmid + "/"].join(",")).join("\n");
+    } else if (id === "tools") {
+      const tools = DATA.tools || [];
+      const categoryCounts = {};
+      tools.forEach((t) => { categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1; });
+      const cats = Object.keys(categoryCounts);
+      drawCountBar(cats, cats.map((c) => categoryCounts[c]), cats.map(() => "#f26bc9"), "Prognostic tools & packages");
+      resultPanel.classList.remove("hidden");
+      resultTitle.textContent = "Prognostic tools & packages";
+      resultSubtitle.textContent = tools.length + " curated methods, software packages, and GitHub repositories.";
+      resultTable.innerHTML = "";
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+      ["Name", "Language", "Category", "Description", "GitHub"].forEach((h) => {
+        const th = document.createElement("th"); th.textContent = h; trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+      const tbody = document.createElement("tbody");
+      tools.forEach((t) => {
+        const tr = document.createElement("tr");
+        [t.name, t.lang, t.category, t.desc].forEach((cell) => {
+          const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td);
+        });
+        const linkTd = document.createElement("td");
+        const a = document.createElement("a");
+        a.href = t.url;
+        a.target = "_blank";
+        a.rel = "noreferrer";
+        a.textContent = "GitHub";
+        a.style.color = "#f26bc9";
+        linkTd.appendChild(a);
+        tr.appendChild(linkTd);
+        tbody.appendChild(tr);
+      });
+      resultTable.replaceChildren(thead, tbody);
+      state.lastCsv = "Name,Language,Category,Description,GitHub\n" + tools.map((t) => [t.name, t.lang, t.category, t.desc, t.url].join(",")).join("\n");
     } else if (id === "hallmark" || id === "functions" || id === "immune" || id === "tme") {
       const { sets, scoresBySet, labels } = runHeatmapModule(id);
       const groups = referenceGroups();
@@ -1546,6 +1584,16 @@
 
   literatureNavBtn.addEventListener("click", openLiterature);
   literatureCtaBtn.addEventListener("click", openLiterature);
+  toolsNavBtn.addEventListener("click", () => {
+    warningBox.classList.add("hidden");
+    moduleRunner("tools");
+    resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  toolsCtaBtn.addEventListener("click", () => {
+    warningBox.classList.add("hidden");
+    moduleRunner("tools");
+    resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 
   buildModules();
 })();
