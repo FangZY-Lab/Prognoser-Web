@@ -1831,10 +1831,15 @@
       button.type = "button";
       button.className = "quick-module-btn";
       button.textContent = m.title;
-      button.addEventListener("click", () => {
+      button.addEventListener("click", async () => {
         clearStatus();
-        showStatus("Running " + m.title + "…", "loading");
         try {
+          if (!state.parsed) {
+            showStatus("Loading TCGA example data…", "loading");
+            await loadExample();
+            if (!state.parsed) throw new Error("Could not load the example data.");
+          }
+          showStatus("Running " + m.title + "…", "loading");
           moduleRunner(m.id);
           warningBox.classList.add("hidden");
           clearStatus();
@@ -1906,7 +1911,7 @@
   }
 
   function loadExample() {
-    loadTcgaExample();
+    return loadTcgaExample();
   }
 
   async function fetchTcgaExampleText() {
