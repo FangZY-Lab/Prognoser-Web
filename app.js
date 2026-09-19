@@ -1972,7 +1972,7 @@
     try {
       runPrognoserExample();
       discoveryWarning.classList.add("hidden");
-      resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      discoveryResults.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
       discoveryWarning.textContent = error.message;
       discoveryWarning.classList.remove("hidden");
