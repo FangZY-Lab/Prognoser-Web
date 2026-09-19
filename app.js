@@ -39,6 +39,7 @@
   const discoveryFilesSize = $("#discovery-files-size");
   const runDiscoveryBtn = $("#run-discovery-btn");
   const loadPrognoserExampleBtn = $("#load-prognoser-example-btn");
+  const prognoserDemoBtn = $("#prognoser-demo-btn");
   const discoveryWarning = $("#discovery-warning");
   const discoveryResults = $("#discovery-results");
   const discoveryCanvas = $("#discovery-canvas");
@@ -2063,6 +2064,16 @@
       runPrognoserExample();
       discoveryWarning.classList.add("hidden");
       discoveryResults.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      discoveryWarning.textContent = error.message;
+      discoveryWarning.classList.remove("hidden");
+    }
+  });
+  prognoserDemoBtn.addEventListener("click", () => {
+    try {
+      runPrognoserExample();
+      discoveryWarning.classList.add("hidden");
+      discoveryResults.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (error) {
       discoveryWarning.textContent = error.message;
       discoveryWarning.classList.remove("hidden");
