@@ -41,6 +41,7 @@
   const runDiscoveryBtn = $("#run-discovery-btn");
   const loadPrognoserExampleBtn = $("#load-prognoser-example-btn");
   const prognoserDemoBtn = $("#prognoser-demo-btn");
+  const uxStatus = $("#ux-status");
   const discoveryWarning = $("#discovery-warning");
   const discoveryResults = $("#discovery-results");
   const discoveryCanvas = $("#discovery-canvas");
@@ -56,6 +57,16 @@
     lastTable: null,
     lastCsv: null,
   };
+
+  function showStatus(message, type) {
+    if (!uxStatus) return;
+    uxStatus.textContent = message;
+    uxStatus.className = "ux-status " + (type || "");
+  }
+
+  function clearStatus() {
+    if (uxStatus) uxStatus.className = "ux-status hidden";
+  }
 
   const MODULES = [
     { id: "risk", title: "Risk classification", desc: "ssGSEA + random forest prediction of iHRS / iLRS." },
@@ -1821,13 +1832,17 @@
       button.className = "quick-module-btn";
       button.textContent = m.title;
       button.addEventListener("click", () => {
+        clearStatus();
+        showStatus("Running " + m.title + "…", "loading");
         try {
           moduleRunner(m.id);
           warningBox.classList.add("hidden");
+          clearStatus();
           resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
         } catch (error) {
           warningBox.textContent = error.message;
           warningBox.classList.remove("hidden");
+          showStatus(error.message, "error");
         }
       });
       quickModules.appendChild(button);
@@ -2092,13 +2107,17 @@
     }
   });
   prognoserDemoBtn.addEventListener("click", () => {
+    clearStatus();
+    showStatus("Running Prognoser example…", "loading");
     try {
       runPrognoserExample();
       discoveryWarning.classList.add("hidden");
+      clearStatus();
       discoveryResults.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (error) {
       discoveryWarning.textContent = error.message;
       discoveryWarning.classList.remove("hidden");
+      showStatus(error.message, "error");
     }
   });
 
