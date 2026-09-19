@@ -39,6 +39,7 @@
   const survivalFileSize = $("#survival-file-size");
   const runDiscoveryBtn = $("#run-discovery-btn");
   const loadSurvivalExampleBtn = $("#load-survival-example-btn");
+  const loadPrognoserExampleBtn = $("#load-prognoser-example-btn");
   const discoveryWarning = $("#discovery-warning");
   const discoveryResults = $("#discovery-results");
   const discoveryCanvas = $("#discovery-canvas");
@@ -1541,6 +1542,153 @@
     state.discovery = { protective, risk, hrgSets, lrgSets };
   }
 
+  function normalQuantile(p) {
+    if (p <= 0 || p >= 1) return 0;
+    const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.3577518672690, -30.66479806614716, 2.506628277459239];
+    const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+    const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+    const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+    const plow = 0.02425;
+    const phigh = 1 - plow;
+    let q;
+    if (p < plow) {
+      q = Math.sqrt(-2 * Math.log(p));
+      return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    }
+    if (p > phigh) {
+      q = Math.sqrt(-2 * Math.log(1 - p));
+      return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    }
+    q = p - 0.5;
+    const r = q * q;
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  }
+
+  function runPrognoserExample() {
+    const endpoints = ["OS", "RFS", "PFS", "DFS"];
+    const makeDataset = (seed) => {
+      let state = seed;
+      const rand = () => { state = (state * 1664525 + 1013904223) >>> 0; return state / 4294967296; };
+      const gauss = () => { const u = Math.max(rand(), 1e-9), v = Math.max(rand(), 1e-9); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+      const nSamples = 80, nGenes = 100;
+      const risk = Array.from({ length: nSamples }, () => gauss());
+      const mat = Array.from({ length: nGenes }, () => Array.from({ length: nSamples }, () => gauss()));
+      for (let s = 0; s < nSamples; s += 1) {
+        for (let g = 0; g < 10; g += 1) mat[g][s] += risk[s] * 2;
+        for (let g = 10; g < 20; g += 1) mat[g][s] -= risk[s] * 2;
+      }
+      const survival = endpoints.map((_, ei) => {
+        const sub = seed * 10 + ei + 1;
+        return Array.from({ length: nSamples }, (_, s) => {
+          const eps = gauss() * 0.3;
+          const time = Math.max(0.05, Math.exp(2 - risk[s] + eps));
+          const status = rand() < 0.7 ? 1 : 0;
+          return { time: Number(time.toFixed(3)), status };
+        });
+      });
+      return { genes: Array.from({ length: nGenes }, (_, i) => "GENE" + (i + 1)), samples: Array.from({ length: nSamples }, (_, i) => "S" + (i + 1)), mat, survival };
+    };
+    const datasets = [makeDataset(11), makeDataset(22), makeDataset(33)];
+    const knowledge = [
+      ["GENE1", "GENE2", "GENE3", "GENE11"],
+      ["GENE4", "GENE5", "GENE6"],
+      ["GENE7", "GENE8", "GENE14"],
+      ["GENE9", "GENE10", "GENE15"],
+      ["GENE11", "GENE12", "GENE13"],
+      ["GENE16", "GENE17", "GENE18"],
+      ["GENE19", "GENE20", "GENE1"],
+      ["GENE2", "GENE4", "GENE6", "GENE8"],
+      ["GENE3", "GENE5", "GENE7", "GENE9"],
+      ["GENE10", "GENE12", "GENE14", "GENE16"],
+    ];
+    const perDataset = datasets.map((d) => {
+      const genes = d.genes, samples = d.samples, mat = d.mat;
+      const geneResults = genes.map((gene, gi) => {
+        const endpointRes = endpoints.map((_, ei) => {
+          const surv = d.survival[ei];
+          const x = samples.map((_, si) => mat[gi][si]);
+          const cox = coxUnivariate(surv.map((s) => s.time), surv.map((s) => s.status), x);
+          return cox;
+        });
+        const valid = endpointRes.filter((r) => Number.isFinite(r.hr) && Number.isFinite(r.p));
+        let combinedP = 1;
+        if (valid.length > 0) {
+          let zsum = 0;
+          valid.forEach((r) => {
+            const z = normalQuantile(1 - r.p / 2) * (Math.log(r.hr) >= 0 ? 1 : -1);
+            zsum += z;
+          });
+          const z = zsum / Math.sqrt(valid.length);
+          combinedP = 2 * (1 - normalCdf(Math.abs(z)));
+          if (!Number.isFinite(combinedP)) combinedP = 1;
+        }
+        const meanHR = valid.length ? Math.exp(valid.reduce((a, r) => a + Math.log(r.hr), 0) / valid.length) : NaN;
+        return { gene, hr: meanHR, p: combinedP };
+      });
+      return geneResults;
+    });
+    const fisherCombine = (arr) => {
+      const ps = arr.map((x) => Math.max(1e-300, Math.min(1, x.p)));
+      const chi2 = -2 * ps.reduce((a, p) => a + Math.log(p), 0);
+      return chiSquareSurvival(chi2, 2 * ps.length);
+    };
+    const allGenes = datasets[0].genes;
+    const merged = allGenes.map((gene) => {
+      const across = perDataset.map((g) => g.find((x) => x.gene === gene));
+      const combinedP = fisherCombine(across);
+      const hrSign = across.reduce((a, x) => a + Math.sign(Math.log(x.hr)), 0) >= 0 ? 1 : -1;
+      return { gene, p: combinedP, hr: hrSign === 1 ? 1.1 : 0.9 };
+    });
+    const denovoThreshold = 0.05;
+    const geneThreshold = 0.01;
+    const minGenes = 3;
+    const similarityThreshold = 0.5;
+    const protectivePool = merged.filter((g) => g.hr < 1 && g.p < denovoThreshold).map((g) => g.gene);
+    const riskPool = merged.filter((g) => g.hr >= 1 && g.p < denovoThreshold).map((g) => g.gene);
+    const purify = (list) => knowledge.map((set) => set.filter((g) => list.includes(g))).filter((s) => s.length > 0);
+    const dedup = (list) => {
+      const n = list.length;
+      if (n === 0) return [];
+      const jac = (a, b) => { const s = new Set(a); const inter = b.filter((x) => s.has(x)).length; return inter / (a.length + b.length - inter || 1); };
+      const cluster = Array.from({ length: n }, (_, i) => i);
+      for (let i = 0; i < n; i += 1) for (let j = i + 1; j < n; j += 1) if (jac(list[i], list[j]) >= similarityThreshold) cluster[j] = cluster[i];
+      const map = new Map();
+      list.forEach((s, i) => { if (!map.has(cluster[i])) map.set(cluster[i], new Set()); s.forEach((g) => map.get(cluster[i]).add(g)); });
+      return [...map.values()].map((s) => [...s]).filter((s) => s.length >= minGenes);
+    };
+    const lrgSets = dedup(purify(protectivePool));
+    const hrgSets = dedup(purify(riskPool));
+    const flat = (sets) => sets.map((s) => s.sort().join(", "));
+    const renderSets = (sets) => sets.map((s, i) => (i + 1) + ". " + s.join(", ")).join("\n");
+    const canvas = discoveryCanvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    discoveryCanvas.width = 720 * dpr; discoveryCanvas.height = 320 * dpr;
+    discoveryCanvas.style.width = "720px"; discoveryCanvas.style.height = "320px";
+    canvas.scale(dpr, dpr);
+    canvas.clearRect(0, 0, 720, 320);
+    canvas.fillStyle = "#e8f6f3"; canvas.font = "bold 16px JetBrains Mono, monospace"; canvas.fillText("Prognoser simulated example", 24, 30);
+    canvas.fillStyle = "#f26bc9"; canvas.font = "13px JetBrains Mono, monospace";
+    canvas.fillText("HRGS sets: " + hrgSets.length + " · LRGS sets: " + lrgSets.length, 24, 55);
+    canvas.fillStyle = "#8aa5a0"; canvas.fillText("Expected: HRGS1 = GENE1-10 · LRGS1 = GENE11-20", 24, 76);
+    discoveryResults.classList.remove("hidden");
+    discoveryTable.innerHTML = "";
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    ["Direction", "Final gene sets"].forEach((h) => { const th = document.createElement("th"); th.textContent = h; trh.appendChild(th); });
+    thead.appendChild(trh);
+    const tbody = document.createElement("tbody");
+    [
+      ["HRGS", renderSets(hrgSets) || "None"],
+      ["LRGS", renderSets(lrgSets) || "None"],
+    ].forEach((row) => {
+      const tr = document.createElement("tr");
+      row.forEach((cell) => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    discoveryTable.replaceChildren(thead, tbody);
+    state.discovery = { hrgSets, lrgSets };
+  }
+
   function buildModules() {
     MODULES.forEach((m, index) => {
       const card = document.createElement("div");
@@ -1815,6 +1963,16 @@
     try {
       runDiscovery();
       discoveryWarning.classList.add("hidden");
+    } catch (error) {
+      discoveryWarning.textContent = error.message;
+      discoveryWarning.classList.remove("hidden");
+    }
+  });
+  loadPrognoserExampleBtn.addEventListener("click", () => {
+    try {
+      runPrognoserExample();
+      discoveryWarning.classList.add("hidden");
+      resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
       discoveryWarning.textContent = error.message;
       discoveryWarning.classList.remove("hidden");
