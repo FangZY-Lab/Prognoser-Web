@@ -361,6 +361,34 @@ code {
   margin-top: 18px;
 }
 
+.quick-modules-section {
+  margin: 0 0 28px;
+}
+
+.quick-modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.quick-module-btn {
+  border: 1px solid var(--line-strong);
+  background: rgba(39, 224, 211, 0.06);
+  color: var(--cyan);
+  padding: 9px 12px;
+  border-radius: 2px;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.quick-module-btn:hover {
+  border-color: var(--cyan);
+  box-shadow: var(--glow);
+}
+
 .highlights {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -21,6 +21,7 @@
   const parseNote = $("#parse-note");
   const warningBox = $("#warning-box");
   const moduleGrid = $("#module-grid");
+  const quickModules = $("#quick-modules");
   const resultPanel = $("#result-panel");
   const resultTitle = $("#result-title");
   const resultSubtitle = $("#result-subtitle");
@@ -1812,6 +1813,27 @@
     });
   }
 
+  function buildQuickModules() {
+    if (!quickModules) return;
+    MODULES.filter((m) => m.id !== "literature" && m.id !== "tools").forEach((m) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "quick-module-btn";
+      button.textContent = m.title;
+      button.addEventListener("click", () => {
+        try {
+          moduleRunner(m.id);
+          warningBox.classList.add("hidden");
+          resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (error) {
+          warningBox.textContent = error.message;
+          warningBox.classList.remove("hidden");
+        }
+      });
+      quickModules.appendChild(button);
+    });
+  }
+
   function makeExampleText() {
     const riskGeneSets = Object.entries(DATA.prognosis_genesets).map(([name, genes]) => ({
       name,
@@ -2081,4 +2103,5 @@
   });
 
   buildModules();
+  buildQuickModules();
 })();
