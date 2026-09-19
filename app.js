@@ -32,13 +32,12 @@
   const literatureCtaBtn = $("#literature-cta-btn");
   const toolsNavBtn = $("#tools-nav-btn");
   const toolsCtaBtn = $("#tools-cta-btn");
-  const survivalDropzone = $("#survival-dropzone");
-  const survivalInput = $("#survival-input");
-  const survivalFileLine = $("#survival-file-line");
-  const survivalFileName = $("#survival-file-name");
-  const survivalFileSize = $("#survival-file-size");
+  const discoveryFilesDropzone = $("#discovery-files-dropzone");
+  const discoveryFilesInput = $("#discovery-files-input");
+  const discoveryFilesLine = $("#discovery-files-line");
+  const discoveryFilesName = $("#discovery-files-name");
+  const discoveryFilesSize = $("#discovery-files-size");
   const runDiscoveryBtn = $("#run-discovery-btn");
-  const loadSurvivalExampleBtn = $("#load-survival-example-btn");
   const loadPrognoserExampleBtn = $("#load-prognoser-example-btn");
   const discoveryWarning = $("#discovery-warning");
   const discoveryResults = $("#discovery-results");
@@ -50,6 +49,7 @@
     risk: null,
     msi: null,
     survival: null,
+    discoveryFiles: null,
     activeModule: null,
     lastTable: null,
     lastCsv: null,
@@ -1689,6 +1689,95 @@
     state.discovery = { hrgSets, lrgSets };
   }
 
+  function runMultiDiscovery() {
+    const files = state.discoveryFiles && state.discoveryFiles.pairs;
+    if (!files || files.size === 0) throw new Error("Upload multi-dataset expression and survival files first.");
+    const datasets = new Map();
+    files.forEach((pair, key) => {
+      const idx = key.lastIndexOf("_");
+      const dataset = key.slice(0, idx);
+      const endpoint = key.slice(idx + 1);
+      if (!datasets.has(dataset)) datasets.set(dataset, []);
+      datasets.get(dataset).push({ endpoint, ...pair });
+    });
+    const denovoThreshold = Number($("#denovo-threshold").value) || 0.05;
+    const geneThreshold = 0.01;
+    const minGenes = Math.max(1, Number($("#min-genes").value) || 5);
+    const fisher = (ps) => {
+      const arr = ps.map((p) => Math.max(1e-300, Math.min(1, p)));
+      const chi2 = -2 * arr.reduce((a, p) => a + Math.log(p), 0);
+      return chiSquareSurvival(chi2, 2 * arr.length);
+    };
+    const allGenes = new Set();
+    files.forEach((pair) => { if (pair.expr) pair.expr.genes.forEach((g) => allGenes.add(g)); });
+    const geneList = [...allGenes];
+    const datasetResults = [];
+    datasets.forEach((endpointPairs, dataset) => {
+      const geneRes = geneList.map((gene) => {
+        const endpointRes = endpointPairs.filter((p) => p.expr && p.survival).map((p) => {
+          const gi = p.expr.genes.findIndex((g) => g.toUpperCase() === gene.toUpperCase());
+          if (gi < 0) return null;
+          const sampleIndex = [];
+          const times = [], statuses = [];
+          p.expr.samples.forEach((sample, si) => {
+            const s = p.survival.get(sample.toUpperCase());
+            if (s && Number.isFinite(s.time) && Number.isFinite(s.status)) {
+              sampleIndex.push(si); times.push(s.time); statuses.push(s.status);
+            }
+          });
+          if (times.length < 2) return null;
+          const x = sampleIndex.map((si) => p.expr.matrix[gi][si]);
+          return coxUnivariate(times, statuses, x);
+        }).filter(Boolean);
+        const valid = endpointRes.filter((r) => Number.isFinite(r.hr) && Number.isFinite(r.p));
+        if (!valid.length) return null;
+        let zsum = 0;
+        valid.forEach((r) => { zsum += normalQuantile(1 - r.p / 2) * (Math.log(r.hr) >= 0 ? 1 : -1); });
+        const z = zsum / Math.sqrt(valid.length);
+        const p = 2 * (1 - normalCdf(Math.abs(z)));
+        const meanHR = Math.exp(valid.reduce((a, r) => a + Math.log(r.hr), 0) / valid.length);
+        return { gene, hr: meanHR, p: Number.isFinite(p) ? p : 1 };
+      }).filter(Boolean);
+      datasetResults.push(geneRes);
+    });
+    const merged = geneList.map((gene) => {
+      const across = datasetResults.map((res) => res.find((r) => r.gene === gene)).filter(Boolean);
+      if (!across.length) return null;
+      const combinedP = fisher(across.map((r) => r.p));
+      const hrSign = across.reduce((a, r) => a + Math.sign(Math.log(r.hr)), 0) >= 0 ? 1 : -1;
+      return { gene, p: combinedP, hr: hrSign === 1 ? 1.1 : 0.9 };
+    }).filter(Boolean);
+    const protective = merged.filter((r) => r.hr < 1 && r.p < denovoThreshold).sort((a, b) => a.p - b.p).map((r) => r.gene);
+    const risk = merged.filter((r) => r.hr >= 1 && r.p < denovoThreshold).sort((a, b) => a.p - b.p).map((r) => r.gene);
+    const hrgSets = risk.length ? [risk.slice(0, Math.max(minGenes, 1))] : [];
+    const lrgSets = protective.length ? [protective.slice(0, Math.max(minGenes, 1))] : [];
+    const canvas = discoveryCanvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    discoveryCanvas.width = 720 * dpr; discoveryCanvas.height = 320 * dpr;
+    discoveryCanvas.style.width = "720px"; discoveryCanvas.style.height = "320px";
+    canvas.scale(dpr, dpr);
+    canvas.clearRect(0, 0, 720, 320);
+    canvas.fillStyle = "#e8f6f3"; canvas.font = "bold 16px JetBrains Mono, monospace"; canvas.fillText("Multi-dataset prognostic discovery", 24, 30);
+    canvas.fillStyle = "#f26bc9"; canvas.font = "13px JetBrains Mono, monospace";
+    canvas.fillText("HRGS sets: " + hrgSets.length + " · LRGS sets: " + lrgSets.length, 24, 55);
+    discoveryResults.classList.remove("hidden");
+    discoveryTable.innerHTML = "";
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    ["Direction", "Genes"].forEach((h) => { const th = document.createElement("th"); th.textContent = h; trh.appendChild(th); });
+    thead.appendChild(trh);
+    const tbody = document.createElement("tbody");
+    [
+      ["HRGS", (hrgSets[0] || []).slice(0, 100).join(", ") || "None"],
+      ["LRGS", (lrgSets[0] || []).slice(0, 100).join(", ") || "None"],
+    ].forEach((row) => {
+      const tr = document.createElement("tr");
+      row.forEach((cell) => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    discoveryTable.replaceChildren(thead, tbody);
+  }
+
   function buildModules() {
     MODULES.forEach((m, index) => {
       const card = document.createElement("div");
@@ -1927,32 +2016,33 @@
     resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
-  survivalDropzone.addEventListener("click", () => survivalInput.click());
-  survivalDropzone.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); survivalInput.click(); }
+  discoveryFilesDropzone.addEventListener("click", () => discoveryFilesInput.click());
+  discoveryFilesDropzone.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); discoveryFilesInput.click(); }
   });
-  survivalInput.addEventListener("change", async () => {
-    const file = survivalInput.files && survivalInput.files[0];
-    if (!file) return;
+  discoveryFilesInput.addEventListener("change", async () => {
+    const files = Array.from(discoveryFilesInput.files || []);
+    if (!files.length) return;
     try {
-      state.survival = parseSurvival(await file.text());
-      survivalFileLine.classList.remove("hidden");
-      survivalFileName.textContent = file.name;
-      survivalFileSize.textContent = formatFileSize(file.size);
-      discoveryWarning.classList.add("hidden");
-    } catch (error) {
-      discoveryWarning.textContent = error.message;
-      discoveryWarning.classList.remove("hidden");
-    }
-  });
-  loadSurvivalExampleBtn.addEventListener("click", async () => {
-    try {
-      const res = await fetch("example_survival.tsv");
-      if (!res.ok) throw new Error("Unable to download example survival data.");
-      state.survival = parseSurvival(await res.text());
-      survivalFileLine.classList.remove("hidden");
-      survivalFileName.textContent = "TCGA-CRC_os_survival.tsv";
-      survivalFileSize.textContent = "623 samples";
+      const pairs = new Map();
+      for (const file of files) {
+        const match = file.name.match(/^(.+)_(OS|RFS|PFS|DFS|OS_time|RFS_time|PFS_time|DFS_time)(_survival)?\.(tsv|csv|txt)$/i);
+        if (!match) continue;
+        const key = match[1].toUpperCase() + "_" + match[2].toUpperCase();
+        const text = await file.text();
+        if (match[3]) {
+          if (!pairs.has(key)) pairs.set(key, {});
+          pairs.get(key).survival = parseSurvival(text);
+        } else {
+          if (!pairs.has(key)) pairs.set(key, {});
+          pairs.get(key).expr = parseMatrix(text);
+        }
+      }
+      if (pairs.size === 0) throw new Error("No valid files matched the naming convention Dataset_Endpoint(_survival).");
+      state.discoveryFiles = { pairs };
+      discoveryFilesLine.classList.remove("hidden");
+      discoveryFilesName.textContent = files.length + " files";
+      discoveryFilesSize.textContent = pairs.size + " dataset-endpoint pairs";
       discoveryWarning.classList.add("hidden");
     } catch (error) {
       discoveryWarning.textContent = error.message;
@@ -1961,7 +2051,7 @@
   });
   runDiscoveryBtn.addEventListener("click", () => {
     try {
-      runDiscovery();
+      runMultiDiscovery();
       discoveryWarning.classList.add("hidden");
     } catch (error) {
       discoveryWarning.textContent = error.message;
