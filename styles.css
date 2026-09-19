@@ -168,6 +168,42 @@ code {
   height: 16px;
 }
 
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.header-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.header-nav a:hover {
+  color: var(--cyan);
+}
+
+.intro-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.resource-panel {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+  padding: 26px;
+  margin-bottom: 30px;
+}
+
 .literature-nav {
   margin-left: 4px;
 }

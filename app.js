@@ -2004,9 +2004,9 @@
     resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  literatureNavBtn.addEventListener("click", openLiterature);
-  literatureCtaBtn.addEventListener("click", openLiterature);
-  toolsNavBtn.addEventListener("click", () => {
+  if (literatureNavBtn) literatureNavBtn.addEventListener("click", openLiterature);
+  if (literatureCtaBtn) literatureCtaBtn.addEventListener("click", openLiterature);
+  if (toolsNavBtn) toolsNavBtn.addEventListener("click", () => {
     warningBox.classList.add("hidden");
     moduleRunner("tools");
     resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });

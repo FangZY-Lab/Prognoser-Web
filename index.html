@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Prognoser · CRC molecular risk and annotation web server</title>
-  <meta name="description" content="Prognoser is a browser-based web server for colorectal cancer risk classification, MSI status, and multi-view molecular annotation from a gene expression matrix.">
+  <meta name="description" content="Prognoser is a browser-based web server for colorectal cancer risk classification, de novo prognostic signature discovery, and multi-view molecular annotation.">
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -20,30 +20,27 @@
         </span>
         <span class="brand-text">
           <span class="brand-name">Prognoser</span>
-          <span class="brand-tagline">CRC risk classification and molecular annotation</span>
+          <span class="brand-tagline">CRC risk and molecular annotation</span>
         </span>
       </a>
-      <a class="gh-link" href="https://github.com/FangZY-Lab/Prognoser-Web" target="_blank" rel="noreferrer">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.91c.58.1.79-.25.79-.56v-2.22c-3.2.7-3.88-1.35-3.88-1.35-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.12 3.05.73.8 1.17 1.83 1.17 3.08 0 4.41-2.68 5.38-5.24 5.67.41.35.78 1.05.78 2.12v3.15c0 .31.2.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"></path>
-        </svg>
-        Prognoser-Web
-      </a>
-      <button class="btn btn-ghost literature-nav" id="literature-nav-btn" type="button">Prognostic ML Literature</button>
-      <button class="btn btn-ghost literature-nav" id="tools-nav-btn" type="button">Prognostic Tools</button>
+      <nav class="header-nav">
+        <a href="#analysis">Analysis</a>
+        <a href="#discovery">Discovery</a>
+        <a href="#literature">Literature</a>
+        <a href="#tools">Tools</a>
+        <a class="gh-link" href="https://github.com/FangZY-Lab/Prognoser-Web" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
     </div>
   </header>
 
   <main class="container">
-    <section class="intro">
+    <section class="intro" id="home">
       <h1>A single expression matrix, a complete colorectal cancer molecular annotation.</h1>
-      <p>Prognoser transforms a colorectal cancer expression profile into risk classification, microsatellite status, CMS / iCMS subtype, immune context, and multi-omics pathway activity without installing software or uploading patient data.</p>
-      <div class="intro-badges">
-        <span class="intro-badge">Fully client-side</span>
-        <span class="intro-badge">18 analysis modules</span>
-        <span class="intro-badge">Open source</span>
+      <p>Prognoser performs risk classification, de novo prognostic signature discovery, microsatellite status, and multi-omics annotation directly in your browser. No installation and no data upload.</p>
+      <div class="intro-actions">
+        <a class="btn btn-example" href="#analysis">Start analysis</a>
+        <button class="btn btn-ghost" id="prognoser-demo-btn" type="button">Try Prognoser example</button>
       </div>
-      <button class="btn btn-example intro-demo" id="prognoser-demo-btn" type="button">Try Prognoser example</button>
       <p class="privacy-note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="4" y="10" width="16" height="11" rx="2"></rect>
@@ -53,107 +50,40 @@
       </p>
     </section>
 
-    <section class="highlights" aria-label="Highlights">
-      <div class="highlight-card">
-        <span class="highlight-icon">01</span>
-        <h3>Risk classification</h3>
-        <p>ssGSEA features and a bundled random forest model assign each sample to iHRS or iLRS.</p>
-      </div>
-      <div class="highlight-card">
-        <span class="highlight-icon">02</span>
-        <h3>MSI status</h3>
-        <p>A PreMSIm-style kNN classifier predicts MSI-H and MSI-L directly from expression.</p>
-      </div>
-      <div class="highlight-card">
-        <span class="highlight-icon">03</span>
-        <h3>Molecular views</h3>
-        <p>CMS, iCMS, hallmarks, immune infiltration, immunophenoscore, and metabolic flux.</p>
-      </div>
-    </section>
-
     <section class="workflow-section">
       <div class="section-head">
         <span class="step-kicker">Workflow</span>
         <h2>From expression matrix to molecular report</h2>
-        <p>Four clear steps. No installation, no server upload.</p>
       </div>
       <div class="workflow">
-        <div class="flow-step">
-          <span class="flow-num">01</span>
-          <h3>Upload</h3>
-          <p>Provide a CSV, TSV, or TXT expression matrix.</p>
-        </div>
+        <div class="flow-step"><span class="flow-num">01</span><h3>Upload</h3><p>Provide expression and optional survival files.</p></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step">
-          <span class="flow-num">02</span>
-          <h3>Classify</h3>
-          <p>Run iHRS / iLRS risk classification and MSI status.</p>
-        </div>
+        <div class="flow-step"><span class="flow-num">02</span><h3>Classify</h3><p>Run iHRS / iLRS risk and MSI status.</p></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step">
-          <span class="flow-num">03</span>
-          <h3>Annotate</h3>
-          <p>Explore CMS, iCMS, immune, pathway, and TME modules.</p>
-        </div>
+        <div class="flow-step"><span class="flow-num">03</span><h3>Annotate</h3><p>Explore CMS, iCMS, immune, and pathway modules.</p></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step">
-          <span class="flow-num">04</span>
-          <h3>Export</h3>
-          <p>Download publication-ready figures and result tables.</p>
-        </div>
+        <div class="flow-step"><span class="flow-num">04</span><h3>Export</h3><p>Download publication-ready figures and tables.</p></div>
       </div>
     </section>
 
-    <section class="literature-cta">
-      <div>
-        <span class="step-kicker">Literature</span>
-        <h2>Prognostic ML Literature</h2>
-        <p>Browse 1,000 PubMed-indexed tumor prognosis machine-learning studies without uploading any data.</p>
-      </div>
-      <button class="btn btn-example" id="literature-cta-btn" type="button">Browse literature</button>
-    </section>
-
-    <section class="literature-cta tools-cta">
-      <div>
-        <span class="step-kicker">Software</span>
-        <h2>Prognostic Tools &amp; Packages</h2>
-        <p>Explore survival analysis methods and software packages with direct GitHub links.</p>
-      </div>
-      <button class="btn btn-example" id="tools-cta-btn" type="button">Browse tools</button>
-    </section>
-
-    <section class="upload-panel">
+    <section class="upload-panel" id="analysis">
       <div class="panel-head">
         <div>
           <span class="step-kicker">Step 1</span>
           <h2>Upload expression matrix</h2>
         </div>
         <div class="panel-actions">
-          <button class="btn btn-ghost" id="download-example-btn" type="button">Download example file</button>
-          <button class="btn btn-example" id="example-btn" type="button">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M7 5.2v13.6a1 1 0 0 0 1.54.84l10.42-6.8a1 1 0 0 0 0-1.68L8.54 4.36A1 1 0 0 0 7 5.2Z"></path>
-            </svg>
-            Load example data
-          </button>
+          <button class="btn btn-ghost" id="download-example-btn" type="button">Download example</button>
+          <button class="btn btn-example" id="example-btn" type="button">Load example data</button>
         </div>
       </div>
       <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Select or drop an expression matrix file">
         <input type="file" id="file-input" accept=".txt,.tsv,.csv,text/plain,text/tab-separated-values,text/csv" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 16V4"></path>
-          <path d="m7 9 5-5 5 5"></path>
-          <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
-        </svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
         <p class="dropzone-title">Drag &amp; drop a file here, or <span>browse</span></p>
         <p class="dropzone-hint">CSV / TSV / TXT · genes as rows, samples as columns</p>
       </div>
-      <div class="file-line hidden" id="file-line">
-        <span class="file-dot" aria-hidden="true"></span>
-        <span id="file-name" class="file-name"></span>
-        <span id="file-size" class="file-size"></span>
-        <button class="text-btn" id="reset-btn" type="button">Change file</button>
-      </div>
+      <div class="file-line hidden" id="file-line"><span class="file-dot"></span><span id="file-name" class="file-name"></span><span id="file-size" class="file-size"></span><button class="text-btn" id="reset-btn" type="button">Change file</button></div>
       <div class="summary-grid" id="summary-grid">
         <div class="summary-item"><span class="summary-value" id="summary-genes">—</span><span class="summary-label">Genes</span></div>
         <div class="summary-item"><span class="summary-value" id="summary-samples">—</span><span class="summary-label">Samples</span></div>
@@ -161,41 +91,6 @@
       </div>
       <p class="parse-note" id="parse-note"></p>
       <div class="warning hidden" id="warning-box" role="alert"></div>
-    </section>
-
-    <section class="upload-panel discovery-panel">
-      <div class="panel-head">
-        <div>
-          <span class="step-kicker">Prognoser</span>
-          <h2>De novo prognostic signature discovery</h2>
-          <p class="result-head">Run univariate Cox regression and return HRGS / LRGS gene signatures from your expression and survival data.</p>
-        </div>
-        <button class="btn btn-ghost" id="load-prognoser-example-btn" type="button">Load Prognoser example</button>
-        <button class="btn btn-example" id="run-discovery-btn" type="button">Run discovery</button>
-      </div>
-      <div class="discovery-controls">
-        <div class="dropzone survival-dropzone" id="discovery-files-dropzone" role="button" tabindex="0" aria-label="Select expression and survival files">
-          <input type="file" id="discovery-files-input" accept=".txt,.tsv,.csv,text/plain,text/tab-separated-values,text/csv" multiple hidden>
-          <p class="dropzone-title">Drop multi-dataset files, or <span>browse</span></p>
-          <p class="dropzone-hint">Files: Dataset_Endpoint.tsv and Dataset_Endpoint_survival.tsv</p>
-        </div>
-        <button class="btn btn-ghost" id="load-prognoser-example-btn" type="button">Load Prognoser example</button>
-        <div class="discovery-params">
-          <label>Denovo p-value <input type="number" id="denovo-threshold" value="0.05" step="0.01" min="0"></label>
-          <label>Min genes <input type="number" id="min-genes" value="5" step="1" min="1"></label>
-          <label>Jaccard threshold <input type="number" id="similarity-threshold" value="0.5" step="0.05" min="0" max="1"></label>
-        </div>
-      </div>
-      <div class="file-line hidden" id="discovery-files-line">
-        <span class="file-dot"></span>
-        <span id="discovery-files-name" class="file-name"></span>
-        <span id="discovery-files-size" class="file-size"></span>
-      </div>
-      <div class="warning hidden" id="discovery-warning" role="alert"></div>
-      <div class="result-body hidden" id="discovery-results">
-        <div class="chart-wrap"><canvas id="discovery-canvas"></canvas></div>
-        <div class="table-wrap"><table id="discovery-table"></table></div>
-      </div>
     </section>
 
     <section class="modules-section">
@@ -209,31 +104,47 @@
 
     <section class="result-panel hidden" id="result-panel">
       <div class="result-head">
-        <div>
-          <span class="step-kicker">Result</span>
-          <h2 id="result-title">Result</h2>
-          <p id="result-subtitle"></p>
+        <div><span class="step-kicker">Result</span><h2 id="result-title">Result</h2><p id="result-subtitle"></p></div>
+        <div class="result-actions"><button class="btn btn-ghost" id="download-csv-btn" type="button">Download CSV</button><button class="btn btn-ghost" id="download-png-btn" type="button">Download chart</button></div>
+      </div>
+      <div class="result-body"><div class="chart-wrap"><canvas id="main-canvas"></canvas></div><div class="table-wrap"><table id="result-table"></table></div></div>
+    </section>
+
+    <section class="upload-panel" id="discovery">
+      <div class="panel-head">
+        <div><span class="step-kicker">Prognoser</span><h2>De novo prognostic signature discovery</h2><p>Multi-dataset and multi-endpoint input, matching the R package.</p></div>
+        <div class="panel-actions"><button class="btn btn-ghost" id="load-prognoser-example-btn" type="button">Load Prognoser example</button><button class="btn btn-example" id="run-discovery-btn" type="button">Run discovery</button></div>
+      </div>
+      <div class="discovery-controls">
+        <div class="dropzone survival-dropzone" id="discovery-files-dropzone" role="button" tabindex="0" aria-label="Select expression and survival files">
+          <input type="file" id="discovery-files-input" accept=".txt,.tsv,.csv,text/plain,text/tab-separated-values,text/csv" multiple hidden>
+          <p class="dropzone-title">Drop multi-dataset files, or <span>browse</span></p>
+          <p class="dropzone-hint">Files: Dataset_Endpoint.tsv and Dataset_Endpoint_survival.tsv</p>
         </div>
-        <div class="result-actions">
-          <button class="btn btn-ghost" id="download-csv-btn" type="button">Download CSV</button>
-          <button class="btn btn-ghost" id="download-png-btn" type="button">Download chart</button>
+        <div class="discovery-params">
+          <label>Denovo p-value <input type="number" id="denovo-threshold" value="0.05" step="0.01" min="0"></label>
+          <label>Min genes <input type="number" id="min-genes" value="5" step="1" min="1"></label>
+          <label>Jaccard threshold <input type="number" id="similarity-threshold" value="0.5" step="0.05" min="0" max="1"></label>
         </div>
       </div>
-      <div class="result-body">
-        <div class="chart-wrap"><canvas id="main-canvas"></canvas></div>
-        <div class="table-wrap"><table id="result-table"></table></div>
-      </div>
+      <div class="file-line hidden" id="discovery-files-line"><span class="file-dot"></span><span id="discovery-files-name" class="file-name"></span><span id="discovery-files-size" class="file-size"></span></div>
+      <div class="warning hidden" id="discovery-warning" role="alert"></div>
+      <div class="result-body hidden" id="discovery-results"><div class="chart-wrap"><canvas id="discovery-canvas"></canvas></div><div class="table-wrap"><table id="discovery-table"></table></div></div>
+    </section>
+
+    <section class="resource-panel" id="literature">
+      <div class="panel-head"><div><span class="step-kicker">Literature</span><h2>Prognostic ML Literature</h2><p>1,000 PubMed-indexed tumor prognosis machine-learning studies.</p></div><button class="btn btn-example" id="literature-cta-btn" type="button">Browse literature</button></div>
+    </section>
+
+    <section class="resource-panel" id="tools">
+      <div class="panel-head"><div><span class="step-kicker">Software</span><h2>Prognostic Tools &amp; Packages</h2><p>Survival analysis methods and software with GitHub links.</p></div><button class="btn btn-example" id="tools-cta-btn" type="button">Browse tools</button></div>
     </section>
 
     <section class="method-section">
-      <div class="section-head">
-        <span class="step-kicker">Methods</span>
-        <h2>Reproducible, direction-aware scoring</h2>
-        <p>Prognoser uses GSVA-style ssGSEA, validated random forest models, and direction-resolved signatures. Every comparison reports a statistical test and can be exported as CSV or PNG.</p>
-      </div>
+      <div class="section-head"><span class="step-kicker">Methods</span><h2>Reproducible, direction-aware scoring</h2><p>Prognoser uses Cox regression, ssGSEA, validated models, and direction-resolved signatures. Every comparison reports a statistical test and can be exported.</p></div>
       <div class="method-grid">
         <div class="method-card"><strong>Input</strong><span>CSV, TSV, or TXT; genes in rows and samples in columns.</span></div>
-        <div class="method-card"><strong>Privacy</strong><span>All computation runs in your browser; data never leaves the device.</span></div>
+        <div class="method-card"><strong>Privacy</strong><span>All computation runs locally; data never leaves the device.</span></div>
         <div class="method-card"><strong>Output</strong><span>Interactive figures, result tables, CSV downloads, and PNG charts.</span></div>
       </div>
     </section>
@@ -241,10 +152,7 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <div>
-        <p>Prognoser-Web · An open-source colorectal cancer molecular annotation tool.</p>
-        <p class="footer-meta">Based on the Prognoser pipeline, <code>rf_model.Rdata</code>, and bundled molecular signatures.</p>
-      </div>
+      <div><p>Prognoser-Web · Open-source colorectal cancer molecular annotation tool.</p><p class="footer-meta">Based on the Prognoser pipeline and bundled molecular signatures.</p></div>
       <a class="footer-link" href="https://github.com/FangZY-Lab/Prognoser-Web" target="_blank" rel="noreferrer">View on GitHub</a>
     </div>
   </footer>
