@@ -663,6 +663,52 @@ code {
   font-size: 14px;
 }
 
+.discovery-controls {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.survival-dropzone {
+  padding: 24px 16px;
+}
+
+.survival-dropzone .dropzone-title {
+  font-size: 14px;
+}
+
+.survival-dropzone .dropzone-hint {
+  font-size: 12px;
+}
+
+.discovery-params {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-content: center;
+}
+
+.discovery-params label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 13px;
+}
+
+.discovery-params input {
+  width: 90px;
+  background: rgba(39, 224, 211, 0.06);
+  border: 1px solid var(--line-strong);
+  color: var(--cyan);
+  padding: 7px 9px;
+  border-radius: 2px;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+}
+
 .modules-section {
   margin: 8px 0 30px;
 }
@@ -874,7 +920,8 @@ tbody tr:hover {
   .module-grid,
   .method-grid,
   .summary-grid,
-  .workflow {
+  .workflow,
+  .discovery-controls {
     grid-template-columns: 1fr;
   }
 

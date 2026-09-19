@@ -32,11 +32,23 @@
   const literatureCtaBtn = $("#literature-cta-btn");
   const toolsNavBtn = $("#tools-nav-btn");
   const toolsCtaBtn = $("#tools-cta-btn");
+  const survivalDropzone = $("#survival-dropzone");
+  const survivalInput = $("#survival-input");
+  const survivalFileLine = $("#survival-file-line");
+  const survivalFileName = $("#survival-file-name");
+  const survivalFileSize = $("#survival-file-size");
+  const runDiscoveryBtn = $("#run-discovery-btn");
+  const loadSurvivalExampleBtn = $("#load-survival-example-btn");
+  const discoveryWarning = $("#discovery-warning");
+  const discoveryResults = $("#discovery-results");
+  const discoveryCanvas = $("#discovery-canvas");
+  const discoveryTable = $("#discovery-table");
 
   const state = {
     parsed: null,
     risk: null,
     msi: null,
+    survival: null,
     activeModule: null,
     lastTable: null,
     lastCsv: null,
@@ -1357,6 +1369,178 @@
     }
   }
 
+  function parseSurvival(text) {
+    const lines = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").map((l) => l.replace(/\s+$/, "")).filter((l) => l.trim());
+    if (lines.length < 2) throw new Error("Survival file is empty.");
+    const delimiter = detectDelimiter(lines[0]);
+    const header = splitLine(lines[0], delimiter).map(cleanField).map((s) => s.toLowerCase());
+    let timeCol = header.findIndex((h) => h.includes("time") || h === "os" || h === "rfs" || h === "pfs" || h === "dfs");
+    let statusCol = header.findIndex((h) => h.includes("status") || h.includes("event") || h.includes("dead"));
+    if (timeCol < 0) timeCol = 1;
+    if (statusCol < 0) statusCol = 2;
+    const map = new Map();
+    for (let li = 1; li < lines.length; li += 1) {
+      const f = splitLine(lines[li], delimiter).map(cleanField);
+      if (f.length < 3) continue;
+      const sample = f[0].toUpperCase();
+      const time = Number(f[timeCol]);
+      const status = Number(f[statusCol]);
+      if (!sample || !Number.isFinite(time) || !Number.isFinite(status)) continue;
+      map.set(sample, { time, status });
+    }
+    return map;
+  }
+
+  function normalCdf(x) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+    const d = 0.3989423 * Math.exp(-x * x / 2);
+    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return x > 0 ? 1 - p : p;
+  }
+
+  function coxUnivariate(time, status, x) {
+    const n = time.length;
+    let beta = 0;
+    for (let iter = 0; iter < 40; iter += 1) {
+      let score = 0, info = 0;
+      for (let i = 0; i < n; i += 1) {
+        if (status[i] !== 1) continue;
+        let denom = 0, xnum = 0, x2num = 0;
+        for (let j = 0; j < n; j += 1) {
+          if (time[j] >= time[i]) {
+            const w = Math.exp(beta * x[j]);
+            denom += w;
+            xnum += x[j] * w;
+            x2num += x[j] * x[j] * w;
+          }
+        }
+        if (denom === 0) continue;
+        const m = xnum / denom;
+        score += x[i] - m;
+        info += x2num / denom - m * m;
+      }
+      if (info <= 1e-12) break;
+      const step = score / info;
+      beta += step;
+      if (Math.abs(step) < 1e-7) break;
+    }
+    const info = (() => {
+      let info = 0;
+      for (let i = 0; i < n; i += 1) {
+        if (status[i] !== 1) continue;
+        let denom = 0, xnum = 0, x2num = 0;
+        for (let j = 0; j < n; j += 1) {
+          if (time[j] >= time[i]) {
+            const w = Math.exp(beta * x[j]);
+            denom += w; xnum += x[j] * w; x2num += x[j] * x[j] * w;
+          }
+        }
+        if (denom === 0) continue;
+        const m = xnum / denom;
+        info += x2num / denom - m * m;
+      }
+      return info;
+    })();
+    if (info <= 1e-12) return { hr: NaN, p: NaN, beta, se: NaN };
+    const se = Math.sqrt(1 / info);
+    const z = beta / se;
+    const p = 2 * (1 - normalCdf(Math.abs(z)));
+    return { hr: Math.exp(beta), p, beta, se };
+  }
+
+  function runDiscovery() {
+    if (!state.parsed) throw new Error("Upload an expression matrix first.");
+    if (!state.survival) throw new Error("Upload survival data first.");
+    const parsed = state.parsed;
+    const sampleIndex = [];
+    const times = [], statuses = [];
+    parsed.samples.forEach((sample, si) => {
+      const s = state.survival.get(sample.toUpperCase());
+      if (s && Number.isFinite(s.time) && Number.isFinite(s.status)) {
+        sampleIndex.push(si);
+        times.push(s.time);
+        statuses.push(s.status);
+      }
+    });
+    if (times.length < 2) throw new Error("Fewer than two matched samples with survival data.");
+
+    const denovoThreshold = Number($("#denovo-threshold").value) || 0.05;
+    const minGenes = Math.max(1, Number($("#min-genes").value) || 5);
+    const similarityThreshold = Number($("#similarity-threshold").value) || 0.5;
+
+    const variances = parsed.genes.map((_, gi) => {
+      const vals = sampleIndex.map((si) => parsed.matrix[gi][si]);
+      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+      return { gi, var: vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / vals.length };
+    }).sort((a, b) => b.var - a.var).slice(0, 2500);
+
+    const results = variances.map(({ gi }) => {
+      const x = sampleIndex.map((si) => parsed.matrix[gi][si]);
+      const cox = coxUnivariate(times, statuses, x);
+      return { gene: parsed.genes[gi], ...cox };
+    }).filter((r) => Number.isFinite(r.hr) && Number.isFinite(r.p));
+
+    const protective = results.filter((r) => r.hr < 1 && r.p < denovoThreshold).sort((a, b) => a.p - b.p);
+    const risk = results.filter((r) => r.hr >= 1 && r.p < denovoThreshold).sort((a, b) => a.p - b.p);
+    const jaccard = (a, b) => {
+      const s = new Set(a); const inter = b.filter((x) => s.has(x)).length;
+      return inter / (a.length + b.length - inter || 1);
+    };
+    const dedup = (list) => {
+      const groups = list.map((r) => [r.gene]);
+      const n = groups.length;
+      const dist = Array.from({ length: n }, () => Array(n).fill(1));
+      for (let i = 0; i < n; i += 1) for (let j = i + 1; j < n; j += 1) {
+        dist[i][j] = dist[j][i] = 1 - jaccard(groups[i], groups[j]);
+      }
+      const cluster = Array.from({ length: n }, (_, i) => i);
+      for (let i = 0; i < n; i += 1) {
+        for (let j = i + 1; j < n; j += 1) {
+          if (dist[i][j] <= 1 - similarityThreshold) cluster[j] = cluster[i];
+        }
+      }
+      const merged = new Map();
+      list.forEach((r, i) => {
+        if (!merged.has(cluster[i])) merged.set(cluster[i], new Set());
+        merged.get(cluster[i]).add(r.gene);
+      });
+      return [...merged.values()].map((s) => [...s]).filter((s) => s.length >= minGenes);
+    };
+    const hrgSets = dedup(risk);
+    const lrgSets = dedup(protective);
+
+    const ctx = discoveryCanvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    discoveryCanvas.width = 720 * dpr; discoveryCanvas.height = 320 * dpr;
+    discoveryCanvas.style.width = "720px"; discoveryCanvas.style.height = "320px";
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, 720, 320);
+    ctx.fillStyle = "#e8f6f3"; ctx.font = "bold 15px JetBrains Mono, monospace"; ctx.fillText("Prognoser discovery", 24, 28);
+    ctx.fillStyle = "#f26bc9"; ctx.font = "13px JetBrains Mono, monospace";
+    ctx.fillText("HRGS sets: " + hrgSets.length + " · LRGS sets: " + lrgSets.length, 24, 50);
+    ctx.fillStyle = "#8aa5a0";
+    ctx.fillText("Protective genes: " + protective.length + " · Risk genes: " + risk.length, 24, 70);
+
+    discoveryResults.classList.remove("hidden");
+    const rows = [
+      ["Protective genes (LRGS)", protective.slice(0, 100).map((r) => r.gene).join(", ")],
+      ["Risk genes (HRGS)", risk.slice(0, 100).map((r) => r.gene).join(", ")],
+    ];
+    discoveryTable.innerHTML = "";
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    ["Direction", "Genes"].forEach((h) => { const th = document.createElement("th"); th.textContent = h; trh.appendChild(th); });
+    thead.appendChild(trh);
+    const tbody = document.createElement("tbody");
+    rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      row.forEach((cell) => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    discoveryTable.replaceChildren(thead, tbody);
+    state.discovery = { protective, risk, hrgSets, lrgSets };
+  }
+
   function buildModules() {
     MODULES.forEach((m, index) => {
       const card = document.createElement("div");
@@ -1593,6 +1777,48 @@
     warningBox.classList.add("hidden");
     moduleRunner("tools");
     resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  survivalDropzone.addEventListener("click", () => survivalInput.click());
+  survivalDropzone.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); survivalInput.click(); }
+  });
+  survivalInput.addEventListener("change", async () => {
+    const file = survivalInput.files && survivalInput.files[0];
+    if (!file) return;
+    try {
+      state.survival = parseSurvival(await file.text());
+      survivalFileLine.classList.remove("hidden");
+      survivalFileName.textContent = file.name;
+      survivalFileSize.textContent = formatFileSize(file.size);
+      discoveryWarning.classList.add("hidden");
+    } catch (error) {
+      discoveryWarning.textContent = error.message;
+      discoveryWarning.classList.remove("hidden");
+    }
+  });
+  loadSurvivalExampleBtn.addEventListener("click", async () => {
+    try {
+      const res = await fetch("example_survival.tsv");
+      if (!res.ok) throw new Error("Unable to download example survival data.");
+      state.survival = parseSurvival(await res.text());
+      survivalFileLine.classList.remove("hidden");
+      survivalFileName.textContent = "TCGA-CRC_os_survival.tsv";
+      survivalFileSize.textContent = "623 samples";
+      discoveryWarning.classList.add("hidden");
+    } catch (error) {
+      discoveryWarning.textContent = error.message;
+      discoveryWarning.classList.remove("hidden");
+    }
+  });
+  runDiscoveryBtn.addEventListener("click", () => {
+    try {
+      runDiscovery();
+      discoveryWarning.classList.add("hidden");
+    } catch (error) {
+      discoveryWarning.textContent = error.message;
+      discoveryWarning.classList.remove("hidden");
+    }
   });
 
   buildModules();

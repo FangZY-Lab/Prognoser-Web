@@ -162,6 +162,40 @@
       <div class="warning hidden" id="warning-box" role="alert"></div>
     </section>
 
+    <section class="upload-panel discovery-panel">
+      <div class="panel-head">
+        <div>
+          <span class="step-kicker">Prognoser</span>
+          <h2>De novo prognostic signature discovery</h2>
+          <p class="result-head">Run univariate Cox regression and return HRGS / LRGS gene signatures from your expression and survival data.</p>
+        </div>
+        <button class="btn btn-example" id="run-discovery-btn" type="button">Run discovery</button>
+      </div>
+      <div class="discovery-controls">
+        <div class="dropzone survival-dropzone" id="survival-dropzone" role="button" tabindex="0" aria-label="Select a survival file">
+          <input type="file" id="survival-input" accept=".txt,.tsv,.csv,text/plain,text/tab-separated-values,text/csv" hidden>
+          <p class="dropzone-title">Drop survival data, or <span>browse</span></p>
+          <p class="dropzone-hint">Columns: sample, time, status</p>
+        </div>
+        <button class="btn btn-ghost" id="load-survival-example-btn" type="button">Load example survival</button>
+        <div class="discovery-params">
+          <label>Denovo p-value <input type="number" id="denovo-threshold" value="0.05" step="0.01" min="0"></label>
+          <label>Min genes <input type="number" id="min-genes" value="5" step="1" min="1"></label>
+          <label>Jaccard threshold <input type="number" id="similarity-threshold" value="0.5" step="0.05" min="0" max="1"></label>
+        </div>
+      </div>
+      <div class="file-line hidden" id="survival-file-line">
+        <span class="file-dot"></span>
+        <span id="survival-file-name" class="file-name"></span>
+        <span id="survival-file-size" class="file-size"></span>
+      </div>
+      <div class="warning hidden" id="discovery-warning" role="alert"></div>
+      <div class="result-body hidden" id="discovery-results">
+        <div class="chart-wrap"><canvas id="discovery-canvas"></canvas></div>
+        <div class="table-wrap"><table id="discovery-table"></table></div>
+      </div>
+    </section>
+
     <section class="modules-section">
       <div class="section-head">
         <span class="step-kicker">Step 2</span>
