@@ -29,9 +29,7 @@
   const resultTable = $("#result-table");
   const downloadCsvBtn = $("#download-csv-btn");
   const downloadPngBtn = $("#download-png-btn");
-  const literatureNavBtn = $("#literature-nav-btn");
   const literatureCtaBtn = $("#literature-cta-btn");
-  const toolsNavBtn = $("#tools-nav-btn");
   const toolsCtaBtn = $("#tools-cta-btn");
   const discoveryFilesDropzone = $("#discovery-files-dropzone");
   const discoveryFilesInput = $("#discovery-files-input");
@@ -1462,98 +1460,6 @@
     return { hr: Math.exp(beta), p, beta, se };
   }
 
-  function runDiscovery() {
-    if (!state.parsed) throw new Error("Upload an expression matrix first.");
-    if (!state.survival) throw new Error("Upload survival data first.");
-    const parsed = state.parsed;
-    const sampleIndex = [];
-    const times = [], statuses = [];
-    parsed.samples.forEach((sample, si) => {
-      const s = state.survival.get(sample.toUpperCase());
-      if (s && Number.isFinite(s.time) && Number.isFinite(s.status)) {
-        sampleIndex.push(si);
-        times.push(s.time);
-        statuses.push(s.status);
-      }
-    });
-    if (times.length < 2) throw new Error("Fewer than two matched samples with survival data.");
-
-    const denovoThreshold = Number($("#denovo-threshold").value) || 0.05;
-    const minGenes = Math.max(1, Number($("#min-genes").value) || 5);
-    const similarityThreshold = Number($("#similarity-threshold").value) || 0.5;
-
-    const variances = parsed.genes.map((_, gi) => {
-      const vals = sampleIndex.map((si) => parsed.matrix[gi][si]);
-      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-      return { gi, var: vals.reduce((a, b) => a + (b - mean) * (b - mean), 0) / vals.length };
-    }).sort((a, b) => b.var - a.var).slice(0, 2500);
-
-    const results = variances.map(({ gi }) => {
-      const x = sampleIndex.map((si) => parsed.matrix[gi][si]);
-      const cox = coxUnivariate(times, statuses, x);
-      return { gene: parsed.genes[gi], ...cox };
-    }).filter((r) => Number.isFinite(r.hr) && Number.isFinite(r.p));
-
-    const protective = results.filter((r) => r.hr < 1 && r.p < denovoThreshold).sort((a, b) => a.p - b.p);
-    const risk = results.filter((r) => r.hr >= 1 && r.p < denovoThreshold).sort((a, b) => a.p - b.p);
-    const jaccard = (a, b) => {
-      const s = new Set(a); const inter = b.filter((x) => s.has(x)).length;
-      return inter / (a.length + b.length - inter || 1);
-    };
-    const dedup = (list) => {
-      const groups = list.map((r) => [r.gene]);
-      const n = groups.length;
-      const dist = Array.from({ length: n }, () => Array(n).fill(1));
-      for (let i = 0; i < n; i += 1) for (let j = i + 1; j < n; j += 1) {
-        dist[i][j] = dist[j][i] = 1 - jaccard(groups[i], groups[j]);
-      }
-      const cluster = Array.from({ length: n }, (_, i) => i);
-      for (let i = 0; i < n; i += 1) {
-        for (let j = i + 1; j < n; j += 1) {
-          if (dist[i][j] <= 1 - similarityThreshold) cluster[j] = cluster[i];
-        }
-      }
-      const merged = new Map();
-      list.forEach((r, i) => {
-        if (!merged.has(cluster[i])) merged.set(cluster[i], new Set());
-        merged.get(cluster[i]).add(r.gene);
-      });
-      return [...merged.values()].map((s) => [...s]).filter((s) => s.length >= minGenes);
-    };
-    const hrgSets = dedup(risk);
-    const lrgSets = dedup(protective);
-
-    const ctx = discoveryCanvas.getContext("2d");
-    const dpr = window.devicePixelRatio || 1;
-    discoveryCanvas.width = 720 * dpr; discoveryCanvas.height = 320 * dpr;
-    discoveryCanvas.style.width = "720px"; discoveryCanvas.style.height = "320px";
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, 720, 320);
-    ctx.fillStyle = "#e8f6f3"; ctx.font = "bold 15px JetBrains Mono, monospace"; ctx.fillText("Prognoser discovery", 24, 28);
-    ctx.fillStyle = "#f26bc9"; ctx.font = "13px JetBrains Mono, monospace";
-    ctx.fillText("HRGS sets: " + hrgSets.length + " · LRGS sets: " + lrgSets.length, 24, 50);
-    ctx.fillStyle = "#8aa5a0";
-    ctx.fillText("Protective genes: " + protective.length + " · Risk genes: " + risk.length, 24, 70);
-
-    discoveryResults.classList.remove("hidden");
-    const rows = [
-      ["Protective genes (LRGS)", protective.slice(0, 100).map((r) => r.gene).join(", ")],
-      ["Risk genes (HRGS)", risk.slice(0, 100).map((r) => r.gene).join(", ")],
-    ];
-    discoveryTable.innerHTML = "";
-    const thead = document.createElement("thead");
-    const trh = document.createElement("tr");
-    ["Direction", "Genes"].forEach((h) => { const th = document.createElement("th"); th.textContent = h; trh.appendChild(th); });
-    thead.appendChild(trh);
-    const tbody = document.createElement("tbody");
-    rows.forEach((row) => {
-      const tr = document.createElement("tr");
-      row.forEach((cell) => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); });
-      tbody.appendChild(tr);
-    });
-    discoveryTable.replaceChildren(thead, tbody);
-    state.discovery = { protective, risk, hrgSets, lrgSets };
-  }
 
   function normalQuantile(p) {
     if (p <= 0 || p >= 1) return 0;
@@ -1577,7 +1483,58 @@
     return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
   }
 
+  // Jaccard overlap of two gene sets.
+  function jaccard(a, b) {
+    const s = new Set(a);
+    let inter = 0;
+    for (const g of b) if (s.has(g)) inter += 1;
+    const union = a.length + b.length - inter;
+    return union ? inter / union : 0;
+  }
+
+  // Group gene sets whose Jaccard similarity reaches `threshold` and return the
+  // unions. Union-find, so the result does not depend on the input order.
+  function clusterGeneSets(list, threshold, minGenes) {
+    const n = list.length;
+    if (!n) return [];
+    const parent = Array.from({ length: n }, (_, i) => i);
+    const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    for (let i = 0; i < n; i += 1) {
+      for (let j = i + 1; j < n; j += 1) {
+        if (jaccard(list[i], list[j]) >= threshold) {
+          const ri = find(i), rj = find(j);
+          if (ri !== rj) parent[rj] = ri;
+        }
+      }
+    }
+    const groups = new Map();
+    list.forEach((s, i) => {
+      const r = find(i);
+      if (!groups.has(r)) groups.set(r, new Set());
+      s.forEach((g) => groups.get(r).add(g));
+    });
+    return [...groups.values()].map((s) => [...s]).filter((s) => s.length >= minGenes);
+  }
+
+  // Restrict the bundled HRGS/LRGS signatures to a gene pool and cluster them.
+  // Falls back to a single de novo set when no reference signature survives.
+  function referenceSetsFor(pool, prefix, threshold, minGenes) {
+    const reference = DATA.prognosis_genesets || {};
+    const upper = new Set(pool.map((g) => g.toUpperCase()));
+    const candidates = Object.keys(reference)
+      .filter((name) => name.indexOf(prefix) === 0)
+      .map((name) => (reference[name] || []).filter((g) => upper.has(g.toUpperCase())))
+      .filter((s) => s.length > 0);
+    if (candidates.length) return clusterGeneSets(candidates, threshold, minGenes);
+    return pool.length ? [pool.slice(0, Math.max(minGenes, 1))] : [];
+  }
+
   function runPrognoserExample() {
+    // The bundled demo is calibrated for these values; make the controls show
+    // them so the parameters below and the panel agree.
+    if ($("#denovo-threshold")) $("#denovo-threshold").value = "0.05";
+    if ($("#min-genes")) $("#min-genes").value = "3";
+    if ($("#similarity-threshold")) $("#similarity-threshold").value = "0.5";
     const endpoints = ["OS", "RFS", "PFS", "DFS"];
     const makeDataset = (seed) => {
       let state = seed;
@@ -1652,25 +1609,14 @@
       const hrSign = across.reduce((a, x) => a + Math.sign(Math.log(x.hr)), 0) >= 0 ? 1 : -1;
       return { gene, p: combinedP, hr: hrSign === 1 ? 1.1 : 0.9 };
     });
-    const denovoThreshold = 0.05;
-    const geneThreshold = 0.01;
-    const minGenes = 3;
-    const similarityThreshold = 0.5;
+    const denovoThreshold = Number($("#denovo-threshold").value) || 0.05;
+    const minGenes = Math.max(1, Number($("#min-genes").value) || 5);
+    const similarityThreshold = Number($("#similarity-threshold").value) || 0.5;
     const protectivePool = merged.filter((g) => g.hr < 1 && g.p < denovoThreshold).map((g) => g.gene);
     const riskPool = merged.filter((g) => g.hr >= 1 && g.p < denovoThreshold).map((g) => g.gene);
     const purify = (list) => knowledge.map((set) => set.filter((g) => list.includes(g))).filter((s) => s.length > 0);
-    const dedup = (list) => {
-      const n = list.length;
-      if (n === 0) return [];
-      const jac = (a, b) => { const s = new Set(a); const inter = b.filter((x) => s.has(x)).length; return inter / (a.length + b.length - inter || 1); };
-      const cluster = Array.from({ length: n }, (_, i) => i);
-      for (let i = 0; i < n; i += 1) for (let j = i + 1; j < n; j += 1) if (jac(list[i], list[j]) >= similarityThreshold) cluster[j] = cluster[i];
-      const map = new Map();
-      list.forEach((s, i) => { if (!map.has(cluster[i])) map.set(cluster[i], new Set()); s.forEach((g) => map.get(cluster[i]).add(g)); });
-      return [...map.values()].map((s) => [...s]).filter((s) => s.length >= minGenes);
-    };
-    const lrgSets = dedup(purify(protectivePool));
-    const hrgSets = dedup(purify(riskPool));
+    const lrgSets = clusterGeneSets(purify(protectivePool), similarityThreshold, minGenes);
+    const hrgSets = clusterGeneSets(purify(riskPool), similarityThreshold, minGenes);
     const flat = (sets) => sets.map((s) => s.sort().join(", "));
     const renderSets = (sets) => sets.map((s, i) => (i + 1) + ". " + s.join(", ")).join("\n");
     const canvas = discoveryCanvas.getContext("2d");
@@ -1714,8 +1660,8 @@
       datasets.get(dataset).push({ endpoint, ...pair });
     });
     const denovoThreshold = Number($("#denovo-threshold").value) || 0.05;
-    const geneThreshold = 0.01;
     const minGenes = Math.max(1, Number($("#min-genes").value) || 5);
+    const similarityThreshold = Number($("#similarity-threshold").value) || 0.5;
     const fisher = (ps) => {
       const arr = ps.map((p) => Math.max(1e-300, Math.min(1, p)));
       const chi2 = -2 * arr.reduce((a, p) => a + Math.log(p), 0);
@@ -1762,8 +1708,8 @@
     }).filter(Boolean);
     const protective = merged.filter((r) => r.hr < 1 && r.p < denovoThreshold).sort((a, b) => a.p - b.p).map((r) => r.gene);
     const risk = merged.filter((r) => r.hr >= 1 && r.p < denovoThreshold).sort((a, b) => a.p - b.p).map((r) => r.gene);
-    const hrgSets = risk.length ? [risk.slice(0, Math.max(minGenes, 1))] : [];
-    const lrgSets = protective.length ? [protective.slice(0, Math.max(minGenes, 1))] : [];
+    const hrgSets = referenceSetsFor(risk, "HRGS", similarityThreshold, minGenes);
+    const lrgSets = referenceSetsFor(protective, "LRGS", similarityThreshold, minGenes);
     const canvas = discoveryCanvas.getContext("2d");
     const dpr = window.devicePixelRatio || 1;
     discoveryCanvas.width = 720 * dpr; discoveryCanvas.height = 320 * dpr;
@@ -2046,13 +1992,7 @@
     resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  if (literatureNavBtn) literatureNavBtn.addEventListener("click", openLiterature);
   if (literatureCtaBtn) literatureCtaBtn.addEventListener("click", openLiterature);
-  if (toolsNavBtn) toolsNavBtn.addEventListener("click", () => {
-    warningBox.classList.add("hidden");
-    moduleRunner("tools");
-    resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
   toolsCtaBtn.addEventListener("click", () => {
     warningBox.classList.add("hidden");
     moduleRunner("tools");
