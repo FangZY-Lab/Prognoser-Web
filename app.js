@@ -181,7 +181,9 @@
       }
       const rec = acc.get(key);
       for (let i = 0; i < sampleCount; i += 1) {
-        const value = Number(fields[i + 1]);
+        const cell = fields[i + 1];
+        if (cell === undefined || cell === "") continue;
+        const value = Number(cell);
         if (Number.isFinite(value)) {
           rec.sums[i] += value;
           rec.counts[i] += 1;
@@ -1395,9 +1397,12 @@
       const f = splitLine(lines[li], delimiter).map(cleanField);
       if (f.length < 3) continue;
       const sample = f[0].toUpperCase();
-      const time = Number(f[timeCol]);
-      const status = Number(f[statusCol]);
-      if (!sample || !Number.isFinite(time) || !Number.isFinite(status)) continue;
+      const timeText = f[timeCol];
+      const statusText = f[statusCol];
+      if (!sample || !timeText || !statusText) continue;
+      const time = Number(timeText);
+      const status = Number(statusText);
+      if (!Number.isFinite(time) || !Number.isFinite(status)) continue;
       map.set(sample, { time, status });
     }
     return map;
